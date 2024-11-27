@@ -3,10 +3,10 @@ use std::str;
 use winnow::{
     branch::alt,
     bytes::{one_of, tag},
-    character::{alphanumeric1, multispace0, multispace1, not_line_ending},
-    combinator::opt,
+    ascii::{alphanumeric1, multispace0, multispace1, not_line_ending},
+    combinator::{opt, repeat},
     error::Error,
-    multi::{many1, separated0},
+    multi::separated0,
     sequence::{delimited, preceded, separated_pair, terminated},
     Parser,
 };
@@ -125,32 +125,32 @@ pub fn skip<'a>() -> impl Parser<&'a str, grammar::Skip, Error<&'a str>> {
 }
 
 pub fn integer<'a>() -> impl Parser<&'a str, grammar::Integer, Error<&'a str>> {
-    many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_"))
+    repeat::<_, _, String, _, _>(1.., one_of("0123456789_"))
         .recognize()
-        .map_res(|out: &str| str::replace(&out, "_", "").parse())
+        .try_map(|out: &str| str::replace(&out, "_", "").parse())
         .map(|value: i32| grammar::Integer { value })
 }
 
 pub fn float<'a>() -> impl Parser<&'a str, grammar::Float, Error<&'a str>> {
     alt((
         (
-            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
             tag("."),
-            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
         )
             .recognize(),
         (
             tag("."),
-            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
         )
             .recognize(),
         (
-            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
             tag("."),
         )
             .recognize(),
     ))
-    .map_res(|out: &str| str::replace(&out, "_", "").parse())
+    .try_map(|out: &str| str::replace(&out, "_", "").parse())
     .map(|value: f64| grammar::Float { value })
 }
 
