@@ -1,10 +1,1 @@
-if(gt(random(), 0.5)) true: {
-    win()
-}, false: {
-    lose()
-}
-
-
-i = loop(_, 5) do: {
-    inspect(i)
-}
+hi(123, _, awds: -3.12)

@@ -1,17 +1,9 @@
-use std::fs;
-
+use chumsky::Parser;
 mod grammar;
-mod parse;
+mod parser;
 
-fn main() -> () {
-    let script = match fs::read_to_string("src/test.ds") {
-        Ok(v) => v,
-        Err(err) => panic!("{err:?}"),
-    };
-    let (remaining, output): (&str, grammar::Code) = match parse::code(&script) {
-        Ok(v) => v,
-        Err(err) => panic!("{err:?}"),
-    };
-    assert_eq!(remaining, "");
-    println!("{:#?}", output);
+fn main() {
+    let src = std::fs::read_to_string(std::env::args().nth(1).unwrap()).unwrap();
+
+    println!("{:#?}", parser::call().parse(&src).unwrap());
 }
