@@ -1,101 +1,177 @@
-use core::f64;
+use std::str;
+
+use winnow::{
+    branch::alt,
+    bytes::{one_of, tag},
+    character::{alphanumeric1, multispace0, multispace1, not_line_ending},
+    combinator::opt,
+    error::Error,
+    multi::{many1, separated0},
+    sequence::{delimited, preceded, separated_pair, terminated},
+    Parser,
+};
 
 use crate::grammar;
-use chumsky::prelude::*;
 
-pub fn digits<'a>(radix: u32) -> impl Parser<'a, &'a str, &'a str> {
-    text::int(radix)
-        .then(
-            any()
-                .filter(move |c: &char| c.is_digit(radix) || *c == '_')
-                .repeated()
-                .collect::<String>(),
-        )
-        .to_slice()
+pub fn assignment<'a>() -> impl Parser<&'a str, grammar::Assignment, Error<&'a str>> {
+    separated_pair(
+        separated0(output(), (tag(","), multispace0)),
+        delimited(multispace0, tag("="), multispace0),
+        invocation(),
+    )
+    .map(|(labels, value)| grammar::Assignment { labels, value })
 }
 
-pub fn integer<'a>() -> impl Parser<'a, &'a str, grammar::Integer> {
-    just("-")
-        .or(just("+"))
-        .or(just(""))
-        .then(digits(10))
-        .to_slice()
-        .map(|s| grammar::Integer {
-            value: s.replace("_", "").parse().unwrap(),
+pub fn output<'a>() -> impl Parser<&'a str, grammar::Output, Error<&'a str>> {
+    (
+        opt(terminated(
+            alphanumeric1.map(str::to_string),
+            (tag(":"), multispace0),
+        )),
+        name(),
+    )
+        .map(|(label, name)| grammar::Output {
+            label: grammar::Label { name: label },
+            name,
         })
 }
 
-pub fn float<'a>() -> impl Parser<'a, &'a str, grammar::Float> {
-    (just("-").or(just("+")).or(just("")))
-        .then(digits(10).then(just(".")).then(digits(10)))
-        .to_slice()
-        .map(|s| s.replace("_", "").parse().unwrap())
-        .or((just("+").or_not().then(just("inf")).to(f64::INFINITY))
-            .or(just("-").then(just("inf")).to(f64::NEG_INFINITY))
-            .or(just("nan").to(f64::NAN)))
-        .map(|value| grammar::Float { value })
+pub fn invocation<'a>() -> impl Parser<&'a str, grammar::Invocation, Error<&'a str>> {
+    (
+        alphanumeric1,
+        delimited(
+            tag("("),
+            separated0(input(), (tag(","), multispace0)),
+            tag(")"),
+        ),
+        opt(preceded(
+            multispace0,
+            separated0(callback(), (tag(","), multispace0)),
+        )),
+    )
+        .map(|(name, inputs, callbacks)| grammar::Invocation {
+            name: name.to_string(),
+            inputs,
+            callbacks: match callbacks {
+                None => Vec::new(),
+                Some(callbacks) => callbacks,
+            },
+        })
 }
 
-pub fn name<'a>() -> impl Parser<'a, &'a str, grammar::Name> {
-    text::ascii::ident().map(|s: &str| grammar::Name {
-        value: s.to_string(),
+pub fn call<'a>() -> impl Parser<&'a str, grammar::Call, Error<&'a str>> {
+    (
+        alphanumeric1,
+        delimited(
+            tag("("),
+            separated0(input(), (tag(","), multispace0)),
+            tag(")"),
+        ),
+    )
+        .map(|(name, inputs)| grammar::Call {
+            name: name.to_string(),
+            inputs,
+        })
+}
+
+pub fn comment<'a>() -> impl Parser<&'a str, grammar::Comment, Error<&'a str>> {
+    preceded((tag("#"), multispace0), not_line_ending).map(|content: &str| grammar::Comment {
+        content: content.to_string(),
     })
 }
 
-pub fn literal<'a>() -> impl Parser<'a, &'a str, grammar::Literal> {
-    (float().map(grammar::Literal::Float))
-        .or(integer().map(grammar::Literal::Integer))
-        .or(name().map(grammar::Literal::Name))
-}
-
-pub fn label<'a>() -> impl Parser<'a, &'a str, grammar::Label> {
-    text::ascii::ident()
-        .then_ignore(just(":").padded())
-        .map(str::to_string)
-        .or_not()
-        .map(|name| grammar::Label { name })
-}
-
-pub fn input<'a>() -> impl Parser<'a, &'a str, grammar::Input> {
-    label()
-        .then(expression())
-        .map(|(label, value)| grammar::Input { label, value })
-}
-
-pub fn call<'a>() -> impl Parser<'a, &'a str, grammar::Call> {
-    Box::new(
-        text::ascii::ident()
-            .then(
-                input()
-                    .separated_by(just(",").padded())
-                    .allow_trailing()
-                    .collect::<Vec<_>>()
-                    .delimited_by(just("("), just(")")),
-            )
-            .map(|(name, inputs)| grammar::Call {
-                name: name.to_string(),
-                inputs,
-            }),
+pub fn input<'a>() -> impl Parser<&'a str, grammar::Input, Error<&'a str>> {
+    (
+        opt(terminated(
+            alphanumeric1.map(str::to_string),
+            (tag(":"), multispace0),
+        )),
+        expression(),
     )
+        .map(|(name, value)| grammar::Input {
+            label: grammar::Label { name },
+            value,
+        })
 }
 
-pub fn skip<'a>() -> impl Parser<'a, &'a str, grammar::Skip> {
-    just("_").map(|_| grammar::Skip {})
+pub fn callback<'a>() -> impl Parser<&'a str, grammar::Callback, Error<&'a str>> {
+    (
+        opt(terminated(
+            alphanumeric1.map(str::to_string),
+            (tag(":"), multispace0),
+        )),
+        delimited((tag("{"), multispace0), code(), (multispace0, tag("}"))),
+    )
+        .map(|(name, content)| grammar::Callback {
+            label: grammar::Label { name },
+            content,
+        })
 }
 
-pub trait ExpressionParser: Sized {
-    fn parser<'a>() -> Boxed<'a, 'a, &'a str, Self, extra::Default>;
+pub fn statement<'a>() -> impl Parser<&'a str, grammar::Statement, Error<&'a str>> {
+    alt((
+        assignment().map(grammar::Statement::Assignment),
+        invocation().map(grammar::Statement::Invocation),
+        comment().map(grammar::Statement::Comment),
+    ))
 }
 
-impl ExpressionParser for grammar::Expression {
-    fn parser<'a>() -> Boxed<'a, 'a, &'a str, Self, extra::Default> {
-        (skip().map(grammar::Expression::Skip))
-            .or(literal().map(grammar::Expression::Literal))
-            .or(call().map(grammar::Expression::Call))
-            .boxed()
-    }
+pub fn code<'a>() -> impl Parser<&'a str, grammar::Code, Error<&'a str>> {
+    separated0(statement(), multispace1).map(|statements| grammar::Code { statements })
 }
 
-pub fn expression<'a>() -> impl Parser<'a, &'a str, grammar::Expression> {
-    ExpressionParser::parser()
+pub fn skip<'a>() -> impl Parser<&'a str, grammar::Skip, Error<&'a str>> {
+    tag("_").map(|_| grammar::Skip {})
+}
+
+pub fn integer<'a>() -> impl Parser<&'a str, grammar::Integer, Error<&'a str>> {
+    many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_"))
+        .recognize()
+        .map_res(|out: &str| str::replace(&out, "_", "").parse())
+        .map(|value: i32| grammar::Integer { value })
+}
+
+pub fn float<'a>() -> impl Parser<&'a str, grammar::Float, Error<&'a str>> {
+    alt((
+        (
+            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+            tag("."),
+            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+        )
+            .recognize(),
+        (
+            tag("."),
+            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+        )
+            .recognize(),
+        (
+            many1::<&str, char, String, winnow::error::Error<&str>, _>(one_of("0123456789_")),
+            tag("."),
+        )
+            .recognize(),
+    ))
+    .map_res(|out: &str| str::replace(&out, "_", "").parse())
+    .map(|value: f64| grammar::Float { value })
+}
+
+pub fn name<'a>() -> impl Parser<&'a str, grammar::Name, Error<&'a str>> {
+    alphanumeric1.map(|value: &str| grammar::Name {
+        value: value.to_string(),
+    })
+}
+
+pub fn literal<'a>() -> impl Parser<&'a str, grammar::Literal, Error<&'a str>> {
+    alt((
+        float().map(grammar::Literal::Float),
+        integer().map(grammar::Literal::Integer),
+        name().map(grammar::Literal::Name),
+    ))
+}
+
+pub fn expression<'a>() -> impl Parser<&'a str, grammar::Expression, Error<&'a str>> {
+    alt((
+        skip().map(grammar::Expression::Skip),
+        literal().map(grammar::Expression::Literal),
+        call().map(grammar::Expression::Call),
+    ))
 }
