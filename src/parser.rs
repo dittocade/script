@@ -1,32 +1,29 @@
 use std::str;
 
 use winnow::{
-    branch::alt,
-    bytes::{one_of, tag},
-    ascii::{alphanumeric1, multispace0, multispace1, not_line_ending},
-    combinator::{opt, repeat},
-    error::Error,
-    multi::separated0,
-    sequence::{delimited, preceded, separated_pair, terminated},
+    ascii::{alphanumeric1, multispace0, multispace1, till_line_ending},
+    combinator::{alt, delimited, opt, preceded, repeat, separated, separated_pair, terminated},
+    error::InputError,
+    token::{any, one_of},
     Parser,
 };
 
 use crate::grammar;
 
-pub fn assignment<'a>() -> impl Parser<&'a str, grammar::Assignment, Error<&'a str>> {
+pub fn assignment<'a>() -> impl Parser<&'a str, grammar::Assignment, InputError<&'a str>> {
     separated_pair(
-        separated0(output(), (tag(","), multispace0)),
-        delimited(multispace0, tag("="), multispace0),
+        separated(0.., output(), (",", multispace0)),
+        delimited(multispace0, "=", multispace0),
         invocation(),
     )
     .map(|(labels, value)| grammar::Assignment { labels, value })
 }
 
-pub fn output<'a>() -> impl Parser<&'a str, grammar::Output, Error<&'a str>> {
+pub fn output<'a>() -> impl Parser<&'a str, grammar::Output, InputError<&'a str>> {
     (
         opt(terminated(
             alphanumeric1.map(str::to_string),
-            (tag(":"), multispace0),
+            (":", multispace0),
         )),
         name(),
     )
@@ -36,17 +33,13 @@ pub fn output<'a>() -> impl Parser<&'a str, grammar::Output, Error<&'a str>> {
         })
 }
 
-pub fn invocation<'a>() -> impl Parser<&'a str, grammar::Invocation, Error<&'a str>> {
+pub fn invocation<'a>() -> impl Parser<&'a str, grammar::Invocation, InputError<&'a str>> {
     (
         alphanumeric1,
-        delimited(
-            tag("("),
-            separated0(input(), (tag(","), multispace0)),
-            tag(")"),
-        ),
+        delimited("(", separated(0.., input(), (",", multispace0)), ")"),
         opt(preceded(
             multispace0,
-            separated0(callback(), (tag(","), multispace0)),
+            separated(0.., callback(), (",", multispace0)),
         )),
     )
         .map(|(name, inputs, callbacks)| grammar::Invocation {
@@ -59,14 +52,10 @@ pub fn invocation<'a>() -> impl Parser<&'a str, grammar::Invocation, Error<&'a s
         })
 }
 
-pub fn call<'a>() -> impl Parser<&'a str, grammar::Call, Error<&'a str>> {
+pub fn call<'a>() -> impl Parser<&'a str, grammar::Call, InputError<&'a str>> {
     (
         alphanumeric1,
-        delimited(
-            tag("("),
-            separated0(input(), (tag(","), multispace0)),
-            tag(")"),
-        ),
+        delimited("(", separated(0.., input(), (",", multispace0)), ")"),
     )
         .map(|(name, inputs)| grammar::Call {
             name: name.to_string(),
@@ -74,17 +63,17 @@ pub fn call<'a>() -> impl Parser<&'a str, grammar::Call, Error<&'a str>> {
         })
 }
 
-pub fn comment<'a>() -> impl Parser<&'a str, grammar::Comment, Error<&'a str>> {
-    preceded((tag("#"), multispace0), not_line_ending).map(|content: &str| grammar::Comment {
+pub fn comment<'a>() -> impl Parser<&'a str, grammar::Comment, InputError<&'a str>> {
+    preceded(("#", multispace0), till_line_ending).map(|content: &str| grammar::Comment {
         content: content.to_string(),
     })
 }
 
-pub fn input<'a>() -> impl Parser<&'a str, grammar::Input, Error<&'a str>> {
+pub fn input<'a>() -> impl Parser<&'a str, grammar::Input, InputError<&'a str>> {
     (
         opt(terminated(
             alphanumeric1.map(str::to_string),
-            (tag(":"), multispace0),
+            (":", multispace0),
         )),
         expression(),
     )
@@ -94,13 +83,13 @@ pub fn input<'a>() -> impl Parser<&'a str, grammar::Input, Error<&'a str>> {
         })
 }
 
-pub fn callback<'a>() -> impl Parser<&'a str, grammar::Callback, Error<&'a str>> {
+pub fn callback<'a>() -> impl Parser<&'a str, grammar::Callback, InputError<&'a str>> {
     (
         opt(terminated(
             alphanumeric1.map(str::to_string),
-            (tag(":"), multispace0),
+            (":", multispace0),
         )),
-        delimited((tag("{"), multispace0), code(), (multispace0, tag("}"))),
+        delimited(("{", multispace0), code(), (multispace0, "}")),
     )
         .map(|(name, content)| grammar::Callback {
             label: grammar::Label { name },
@@ -108,7 +97,7 @@ pub fn callback<'a>() -> impl Parser<&'a str, grammar::Callback, Error<&'a str>>
         })
 }
 
-pub fn statement<'a>() -> impl Parser<&'a str, grammar::Statement, Error<&'a str>> {
+pub fn statement<'a>() -> impl Parser<&'a str, grammar::Statement, InputError<&'a str>> {
     alt((
         assignment().map(grammar::Statement::Assignment),
         invocation().map(grammar::Statement::Invocation),
@@ -116,37 +105,47 @@ pub fn statement<'a>() -> impl Parser<&'a str, grammar::Statement, Error<&'a str
     ))
 }
 
-pub fn code<'a>() -> impl Parser<&'a str, grammar::Code, Error<&'a str>> {
-    separated0(statement(), multispace1).map(|statements| grammar::Code { statements })
+pub fn code<'a>() -> impl Parser<&'a str, grammar::Code, InputError<&'a str>> {
+    separated(0.., statement(), multispace1).map(|statements| grammar::Code { statements })
 }
 
-pub fn skip<'a>() -> impl Parser<&'a str, grammar::Skip, Error<&'a str>> {
-    tag("_").map(|_| grammar::Skip {})
+pub fn skip<'a>() -> impl Parser<&'a str, grammar::Skip, InputError<&'a str>> {
+    "_".map(|_| grammar::Skip {})
 }
 
-pub fn integer<'a>() -> impl Parser<&'a str, grammar::Integer, Error<&'a str>> {
-    repeat::<_, _, String, _, _>(1.., one_of("0123456789_"))
+pub fn digits<'a>(radix: u32) -> impl Parser<&'a str, &'a str, InputError<&'a str>> {
+    (
+        any.verify(move |c: &char| c.is_digit(radix) || *c == '_'),
+        repeat::<_, _, String, _, _>(
+            0..,
+            any.verify(move |c: &char| c.is_digit(radix) || *c == '_'),
+        ),
+    )
         .recognize()
+}
+
+pub fn integer<'a>() -> impl Parser<&'a str, grammar::Integer, InputError<&'a str>> {
+    digits(10)
         .try_map(|out: &str| str::replace(&out, "_", "").parse())
         .map(|value: i32| grammar::Integer { value })
 }
 
-pub fn float<'a>() -> impl Parser<&'a str, grammar::Float, Error<&'a str>> {
+pub fn float<'a>() -> impl Parser<&'a str, grammar::Float, InputError<&'a str>> {
     alt((
         (
-            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
-            tag("."),
-            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
+            digits(10),
+            ".",
+            digits(10),
         )
             .recognize(),
         (
-            tag("."),
-            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
+            ".",
+            digits(10),
         )
             .recognize(),
         (
-            repeat::<_, _, String, _, _>(1.., one_of("0123456789_")),
-            tag("."),
+            digits(10),
+            ".",
         )
             .recognize(),
     ))
@@ -154,13 +153,13 @@ pub fn float<'a>() -> impl Parser<&'a str, grammar::Float, Error<&'a str>> {
     .map(|value: f64| grammar::Float { value })
 }
 
-pub fn name<'a>() -> impl Parser<&'a str, grammar::Name, Error<&'a str>> {
+pub fn name<'a>() -> impl Parser<&'a str, grammar::Name, InputError<&'a str>> {
     alphanumeric1.map(|value: &str| grammar::Name {
         value: value.to_string(),
     })
 }
 
-pub fn literal<'a>() -> impl Parser<&'a str, grammar::Literal, Error<&'a str>> {
+pub fn literal<'a>() -> impl Parser<&'a str, grammar::Literal, InputError<&'a str>> {
     alt((
         float().map(grammar::Literal::Float),
         integer().map(grammar::Literal::Integer),
@@ -168,7 +167,7 @@ pub fn literal<'a>() -> impl Parser<&'a str, grammar::Literal, Error<&'a str>> {
     ))
 }
 
-pub fn expression<'a>() -> impl Parser<&'a str, grammar::Expression, Error<&'a str>> {
+pub fn expression<'a>() -> impl Parser<&'a str, grammar::Expression, InputError<&'a str>> {
     alt((
         skip().map(grammar::Expression::Skip),
         literal().map(grammar::Expression::Literal),

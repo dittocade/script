@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-winnow = "0.4"
+winnow = "0.5"
