@@ -4,7 +4,7 @@ use winnow::{
     ascii::{alphanumeric1, multispace0, multispace1, till_line_ending},
     combinator::{alt, delimited, opt, preceded, repeat, separated, separated_pair, terminated},
     error::InputError,
-    token::{any, one_of},
+    token::any,
     Parser,
 };
 
@@ -121,7 +121,7 @@ pub fn digits<'a>(radix: u32) -> impl Parser<&'a str, &'a str, InputError<&'a st
             any.verify(move |c: &char| c.is_digit(radix) || *c == '_'),
         ),
     )
-        .recognize()
+        .take()
 }
 
 pub fn integer<'a>() -> impl Parser<&'a str, grammar::Integer, InputError<&'a str>> {
@@ -137,17 +137,17 @@ pub fn float<'a>() -> impl Parser<&'a str, grammar::Float, InputError<&'a str>> 
             ".",
             digits(10),
         )
-            .recognize(),
+            .take(),
         (
             ".",
             digits(10),
         )
-            .recognize(),
+            .take(),
         (
             digits(10),
             ".",
         )
-            .recognize(),
+            .take(),
     ))
     .try_map(|out: &str| str::replace(&out, "_", "").parse())
     .map(|value: f64| grammar::Float { value })
