@@ -34,8 +34,7 @@ pub struct Callback {
 
 #[derive(Debug)]
 pub struct Invocation {
-    pub name: String,
-    pub inputs: Vec<Input>,
+    pub call: Call,
     pub callbacks: Vec<Callback>,
 }
 
@@ -72,15 +71,9 @@ pub struct Float {
 }
 
 #[derive(Debug)]
-pub struct Name {
-    pub value: String,
-}
-
-#[derive(Debug)]
 pub enum Literal {
     Integer(Integer),
     Float(Float),
-    Name(Name),
 }
 
 #[derive(Debug)]
@@ -92,8 +85,14 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
+pub struct Name {
+    pub value: String,
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Literal(Literal),
     Call(Call),
     Skip(Skip),
+    Name(Name),
 }

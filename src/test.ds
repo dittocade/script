@@ -1,1 +1,9 @@
-hi(123, _, awds: 3)
+if(greater_than(random(), 0.5)) true: {
+    win()
+} false: {
+    lose()
+}
+
+i = loop(_, 5) do: {
+    inspect(i)
+}

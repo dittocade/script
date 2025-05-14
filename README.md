@@ -13,9 +13,9 @@ Nodes are similar to expressions or statements in text-based programming.
 ### I/O
 
 Nodes can optionally be invoked with _inputs_ and provide _outputs_. Builtin
-nodes can also be passed _literals_, custom data which cannot be changed by any
-inputs. Inputs and literals not passed fallback to a default value, while
-outputs not used are discarded.
+nodes can also be passed _options__, custom data which must be known at transpile time and cannot be changed by any
+inputs. Inputs and options not passed remain set to a default value, while
+unused outputs are discarded.
 
 ### Execution flow
 
@@ -26,16 +26,16 @@ _callbacks_ that will call further nodes.
 
 ### Invoking Nodes
 
-Nodes can be directly invoked by their name. Inputs and literals can be passed
+Nodes can be directly invoked by their name. Inputs and options can be passed
 in parentheses seperated by commata. They can be passed positionally, by name,
-or left out using `_`. Literals are positioned after the inputs.
+or left out using `_`. Positional options are passed after positional inputs.
 
 ```py
 set_score(5) # Input by position
 set_score(coins 3) # Input by name
 set_score(_, 3) # Skip input
-set_score(5, _, most_points) # Mixed inputs and literals
-win(delay: 20) # Literal by name
+set_score(5, _, most_points) # Mixed inputs and options
+win(delay: 20) # Option by name
 ```
 
 ### Assignments
@@ -55,13 +55,13 @@ y: y = touch_sensor()
 Callbacks are defined by position or name after the inputs.
 
 ```py
-if(random() > 0.5) true {
+if(greater_than(random(), 0.5)) true: {
     win()
-} false {
+} false: {
     lose()
 }
 
-i = loop(_, 5) do {
+i = loop(_, 5) do: {
     inspect(i)
 }
 ```
@@ -89,8 +89,8 @@ Nodes can be defined after the `def` keyword with their outputs, name, inputs
 and entries in that order.
 
 ```py
-def result = lerp(from, to, amount) {
-    result = add(from, mul(sub(to - from), amount))
+def result = lerp(from, to, amount): {
+    result = add(from, multiply(subtract(to, from), amount))
 }
 ```
 

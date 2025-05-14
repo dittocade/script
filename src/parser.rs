@@ -1,176 +1,130 @@
-use crate::grammar;
-use std::str;
-
+use crate::grammar::*;
 use winnow::{
-    ascii::{alphanumeric1, multispace0, multispace1, till_line_ending},
-    combinator::{alt, delimited, opt, preceded, repeat, separated, separated_pair, terminated},
-    error::InputError,
-    token::any,
-    PResult, Parser,
+    ascii::{digit1, multispace0, multispace1, till_line_ending}, combinator::{alt, opt, repeat, separated, terminated, seq}, error::StrContext, token::take_while, Parser, Result
 };
 
-pub fn assignment<'a>(inp: &mut &'a str) -> PResult<grammar::Assignment, InputError<&'a str>> {
-    separated_pair(
-        separated(0.., output, (",", multispace0)),
-        delimited(multispace0, "=", multispace0),
-        invocation,
-    )
-    .map(|(labels, value)| grammar::Assignment { labels, value })
-    .parse_next(inp)
+pub fn skip<'s>(i: &mut &'s str) -> Result<Skip> {
+    seq!{Skip{
+        _: '_'
+    }}.context(StrContext::Label("placeholder")).parse_next(i)
 }
 
-pub fn output<'a>(inp: &mut &'a str) -> PResult<grammar::Output, InputError<&'a str>> {
-    (
-        opt(terminated(
-            alphanumeric1.map(str::to_string),
-            (":", multispace0),
-        )),
-        name,
-    )
-        .map(|(label, name)| grammar::Output {
-            label: grammar::Label { name: label },
-            name,
-        })
-        .parse_next(inp)
+pub fn identifier<'s>(i: &mut &'s str) -> Result<String> {
+    take_while(1.., |char: char| char.is_alphanumeric() || char == '_').context(StrContext::Label("identifier")).map(str::to_string).parse_next(i)
 }
 
-pub fn invocation<'a>(inp: &mut &'a str) -> PResult<grammar::Invocation, InputError<&'a str>> {
-    (
-        alphanumeric1,
-        delimited("(", separated(0.., input, (",", multispace0)), ")"),
-        opt(preceded(
-            multispace0,
-            separated(0.., callback, (",", multispace0)),
-        )),
-    )
-        .map(|(name, inputs, callbacks)| grammar::Invocation {
-            name: name.to_string(),
-            inputs,
-            callbacks: match callbacks {
-                None => Vec::new(),
-                Some(callbacks) => callbacks,
-            },
-        })
-        .parse_next(inp)
+pub fn name<'s>(i: &mut &'s str) -> Result<Name> {
+    seq!{Name{
+        value: identifier,
+    }}.context(StrContext::Label("name")).parse_next(i)
 }
 
-pub fn call<'a>(inp: &mut &'a str) -> PResult<grammar::Call, InputError<&'a str>> {
-    (
-        alphanumeric1,
-        delimited("(", separated(0.., input, (",", multispace0)), ")"),
-    )
-        .map(|(name, inputs)| grammar::Call {
-            name: name.to_string(),
-            inputs,
-        })
-        .parse_next(inp)
+pub fn float<'s>(i: &mut &'s str) -> Result<Float> {
+    (opt('-'), digit1, '.', digit1).context(StrContext::Label("floating-point number")).take().parse_to().map(|value| Float{value}).parse_next(i)
 }
 
-pub fn comment<'a>(inp: &mut &'a str) -> PResult<grammar::Comment, InputError<&'a str>> {
-    preceded(("#", multispace0), till_line_ending)
-        .map(|content: &str| grammar::Comment {
-            content: content.to_string(),
-        })
-        .parse_next(inp)
+pub fn integer<'s>(i: &mut &'s str) -> Result<Integer> {
+    (opt('-'), digit1).context(StrContext::Label("integer")).take().parse_to().map(|value| Integer{value}).parse_next(i)
 }
 
-pub fn input<'a>(inp: &mut &'a str) -> PResult<grammar::Input, InputError<&'a str>> {
-    (
-        opt(terminated(
-            alphanumeric1.map(str::to_string),
-            (":", multispace0),
-        )),
-        expression,
-    )
-        .map(|(name, value)| grammar::Input {
-            label: grammar::Label { name },
-            value,
-        })
-        .parse_next(inp)
-}
-
-pub fn callback<'a>(inp: &mut &'a str) -> PResult<grammar::Callback, InputError<&'a str>> {
-    (
-        opt(terminated(
-            alphanumeric1.map(str::to_string),
-            (":", multispace0),
-        )),
-        delimited(("{", multispace0), code, (multispace0, "}")),
-    )
-        .map(|(name, content)| grammar::Callback {
-            label: grammar::Label { name },
-            content,
-        })
-        .parse_next(inp)
-}
-
-pub fn statement<'a>(inp: &mut &'a str) -> PResult<grammar::Statement, InputError<&'a str>> {
+pub fn literal<'s>(i: &mut &'s str) -> Result<Literal> {
     alt((
-        assignment.map(grammar::Statement::Assignment),
-        invocation.map(grammar::Statement::Invocation),
-        comment.map(grammar::Statement::Comment),
-    ))
-    .parse_next(inp)
+        float.map(Literal::Float),
+        integer.map(Literal::Integer)
+    )).parse_next(i)
 }
 
-pub fn code<'a>(inp: &mut &'a str) -> PResult<grammar::Code, InputError<&'a str>> {
-    separated(0.., statement, multispace1)
-        .map(|statements| grammar::Code { statements })
-        .parse_next(inp)
+pub fn label<'s>(i: &mut &'s str) -> Result<Label> {
+    seq!{Label{
+        name: opt(terminated(identifier,(':', multispace0)))
+    }}.context(StrContext::Label("label")).parse_next(i)
 }
 
-pub fn skip<'a>(inp: &mut &'a str) -> PResult<grammar::Skip, InputError<&'a str>> {
-    "_".map(|_| grammar::Skip {}).parse_next(inp)
+pub fn input<'s>(i: &mut &'s str) -> Result<Input> {
+    seq!{Input{
+        label: label,
+        value: expression,
+    }}.context(StrContext::Label("input")).parse_next(i)
 }
 
-pub fn digits<'a>(inp: &mut &'a str) -> PResult<&'a str, InputError<&'a str>> {
-    (
-        any.verify(move |c: &char| c.is_digit(10) || *c == '_'),
-        repeat::<_, _, String, _, _>(0.., any.verify(move |c: &char| c.is_digit(10) || *c == '_')),
-    )
-        .take()
-        .parse_next(inp)
+pub fn call<'s>(i: &mut &'s str) -> Result<Call> {
+    seq!{Call{
+        name: identifier,
+        _: multispace0,
+        _: '(',
+        _: multispace0,
+        inputs: separated(0.., input, (',', multispace0)),
+        _: ')',
+    }}.context(StrContext::Label("call")).parse_next(i)
 }
 
-pub fn integer<'a>(inp: &mut &'a str) -> PResult<grammar::Integer, InputError<&'a str>> {
-    digits
-        .try_map(|out: &str| str::replace(&out, "_", "").parse())
-        .map(|value: i32| grammar::Integer { value })
-        .parse_next(inp)
-}
-
-pub fn float<'a>(inp: &mut &'a str) -> PResult<grammar::Float, InputError<&'a str>> {
+pub fn expression<'s>(i: &mut &'s str) -> Result<Expression> {
     alt((
-        (digits, ".", digits).take(),
-        (".", digits).take(),
-        (digits, ".").take(),
-    ))
-    .try_map(|out: &str| str::replace(&out, "_", "").parse())
-    .map(|value: f64| grammar::Float { value })
-    .parse_next(inp)
+        skip.map(Expression::Skip),
+        literal.map(Expression::Literal),
+        call.map(Expression::Call),
+        name.map(Expression::Name),
+    )).parse_next(i)
 }
 
-pub fn name<'a>(inp: &mut &'a str) -> PResult<grammar::Name, InputError<&'a str>> {
-    alphanumeric1
-        .map(|value: &str| grammar::Name {
-            value: value.to_string(),
-        })
-        .parse_next(inp)
+pub fn code<'s>(i: &mut &'s str) -> Result<Code> {
+    seq!{Code{
+        _: '{',
+        _: multispace0,
+        statements: repeat(0.., terminated(statement, multispace0)),
+        _: '}'
+    }}.context(StrContext::Label("code block")).parse_next(i)
 }
 
-pub fn literal<'a>(inp: &mut &'a str) -> PResult<grammar::Literal, InputError<&'a str>> {
+pub fn callback<'s>(i: &mut &'s str) -> Result<Callback> {
+    seq!{Callback{
+        label: label,
+        content: code,
+    }}.context(StrContext::Label("callback")).parse_next(i)
+}
+
+pub fn invocation<'s>(i: &mut &'s str) -> Result<Invocation> {
+    seq!{Invocation{
+        call: call,
+        _: multispace0,
+        callbacks: separated(0.., callback, multispace1)
+    }}.context(StrContext::Label("invocation")).parse_next(i)
+}
+pub fn output<'s>(i: &mut &'s str) -> Result<Output> {
+    seq!{Output{
+        label: label,
+        name: name,
+    }}.parse_next(i)
+}
+
+pub fn assignment<'s>(i: &mut &'s str) -> Result<Assignment> {
+    seq!{Assignment{
+        labels: separated(1.., output, (',', multispace0)),
+        _: multispace0,
+        _: '=',
+        _: multispace0,
+        value: invocation
+    }}.parse_next(i)
+}
+
+pub fn comment<'s>(i: &mut &'s str) -> Result<Comment> {
+    seq!{Comment{
+        _: '#',
+        content: till_line_ending.map(str::trim).map(str::to_string)
+    }}.parse_next(i)
+}
+
+pub fn statement<'s>(i: &mut &'s str) -> Result<Statement> {
     alt((
-        float.map(grammar::Literal::Float),
-        integer.map(grammar::Literal::Integer),
-        name.map(grammar::Literal::Name),
-    ))
-    .parse_next(inp)
+        invocation.map(Statement::Invocation),
+        assignment.map(Statement::Assignment),
+        comment.map(Statement::Comment),
+    )).parse_next(i)
 }
 
-pub fn expression<'a>(inp: &mut &'a str) -> PResult<grammar::Expression, InputError<&'a str>> {
-    alt((
-        skip.map(grammar::Expression::Skip),
-        literal.map(grammar::Expression::Literal),
-    ))
-    .parse_next(inp)
+pub fn file<'s>(i: &mut &'s str) -> Result<Code> {
+    seq!{Code{
+        _: multispace0,
+        statements: repeat(0.., terminated(statement, multispace0)),
+    }}.parse_next(i)
 }
