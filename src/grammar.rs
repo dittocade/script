@@ -12,29 +12,25 @@ pub struct Input {
 #[derive(Debug)]
 pub struct Output {
     pub label: Label,
-    pub name: Name,
+    pub name: String,
 }
 
 #[derive(Debug)]
-pub struct Assignment {
-    pub labels: Vec<Output>,
-    pub value: Invocation,
-}
-
-#[derive(Debug)]
-pub struct Code {
+pub struct File {
     pub statements: Vec<Statement>,
 }
 
 #[derive(Debug)]
 pub struct Callback {
     pub label: Label,
-    pub content: Code,
+    pub statements: Vec<Statement>,
 }
 
 #[derive(Debug)]
 pub struct Invocation {
-    pub call: Call,
+    pub outputs: Vec<Output>,
+    pub name: String,
+    pub inputs: Vec<Input>,
     pub callbacks: Vec<Callback>,
 }
 
@@ -44,8 +40,8 @@ pub struct Skip {}
 #[derive(Debug)]
 pub struct Definition {
     pub name: String,
-    pub outputs: Vec<Label>,
-    pub inputs: Vec<Expression>,
+    pub outputs: Vec<Output>,
+    pub inputs: Vec<Input>,
     pub callbacks: Vec<Callback>,
 }
 
@@ -78,14 +74,26 @@ pub enum Literal {
 
 #[derive(Debug)]
 pub enum Statement {
-    Assignment(Assignment),
     Invocation(Invocation),
     Definition(Definition),
     Comment(Comment),
 }
 
+#[derive(Debug, Clone)]
+pub enum Modifier {
+    Default,
+    Global,
+    Saved,
+}
+
+impl Default for Modifier {
+    fn default() -> Self { Modifier::Default }
+}
+
+
 #[derive(Debug)]
 pub struct Name {
+    pub modifier: Modifier,
     pub value: String,
 }
 

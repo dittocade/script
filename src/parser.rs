@@ -1,6 +1,6 @@
 use crate::grammar::*;
 use winnow::{
-    ascii::{digit1, multispace0, multispace1, till_line_ending}, combinator::{alt, opt, repeat, separated, terminated, seq}, error::StrContext, token::take_while, Parser, Result
+    ascii::{digit1, multispace0, till_line_ending}, combinator::{alt, empty, opt, repeat, separated, seq, terminated}, error::StrContext, token::{one_of, take_while}, Parser, Result
 };
 
 pub fn skip<'s>(i: &mut &'s str) -> Result<Skip> {
@@ -10,11 +10,19 @@ pub fn skip<'s>(i: &mut &'s str) -> Result<Skip> {
 }
 
 pub fn identifier<'s>(i: &mut &'s str) -> Result<String> {
-    take_while(1.., |char: char| char.is_alphanumeric() || char == '_').context(StrContext::Label("identifier")).map(str::to_string).parse_next(i)
+    seq!(
+        one_of( |char: char| char.is_alphabetic()),
+        take_while(0.., |char: char| char.is_alphanumeric() || matches!(char, '_' | ' '))
+    ).take().context(StrContext::Label("identifier")).map(str::to_string).parse_next(i)
 }
 
 pub fn name<'s>(i: &mut &'s str) -> Result<Name> {
     seq!{Name{
+        modifier: alt((
+            '!'.value(Modifier::Saved),
+            '$'.value(Modifier::Global),
+            empty.default_value(),
+        )),
         value: identifier,
     }}.context(StrContext::Label("name")).parse_next(i)
 }
@@ -31,7 +39,7 @@ pub fn literal<'s>(i: &mut &'s str) -> Result<Literal> {
     alt((
         float.map(Literal::Float),
         integer.map(Literal::Integer)
-    )).parse_next(i)
+    )).context(StrContext::Label("literal")).parse_next(i)
 }
 
 pub fn label<'s>(i: &mut &'s str) -> Result<Label> {
@@ -64,67 +72,79 @@ pub fn expression<'s>(i: &mut &'s str) -> Result<Expression> {
         literal.map(Expression::Literal),
         call.map(Expression::Call),
         name.map(Expression::Name),
-    )).parse_next(i)
-}
-
-pub fn code<'s>(i: &mut &'s str) -> Result<Code> {
-    seq!{Code{
-        _: '{',
-        _: multispace0,
-        statements: repeat(0.., terminated(statement, multispace0)),
-        _: '}'
-    }}.context(StrContext::Label("code block")).parse_next(i)
+    )).context(StrContext::Label("expression")).parse_next(i)
 }
 
 pub fn callback<'s>(i: &mut &'s str) -> Result<Callback> {
     seq!{Callback{
-        label: label,
-        content: code,
+        label: seq!{Label{
+            name: opt(identifier),
+            _: multispace0
+        }},
+        _: '{',
+        _: multispace0,
+        statements: repeat(0.., terminated(statement, multispace0)),
+        _: '}'
     }}.context(StrContext::Label("callback")).parse_next(i)
 }
 
 pub fn invocation<'s>(i: &mut &'s str) -> Result<Invocation> {
     seq!{Invocation{
-        call: call,
+        outputs: opt(terminated(separated(1.., output, (',', multispace0)), (multispace0, '=', multispace0))).map(|v| v.unwrap_or_default()),
+        name: identifier,
         _: multispace0,
-        callbacks: separated(0.., callback, multispace1)
+        _: '(',
+        _: multispace0,
+        inputs: separated(0.., input, (',', multispace0)),
+        _: ')',
+        _: multispace0,
+        callbacks: repeat(0.., terminated(callback, multispace0))
     }}.context(StrContext::Label("invocation")).parse_next(i)
 }
 pub fn output<'s>(i: &mut &'s str) -> Result<Output> {
     seq!{Output{
         label: label,
-        name: name,
-    }}.parse_next(i)
+        name: identifier,
+    }}.context(StrContext::Label("output")).parse_next(i)
 }
 
-pub fn assignment<'s>(i: &mut &'s str) -> Result<Assignment> {
-    seq!{Assignment{
-        labels: separated(1.., output, (',', multispace0)),
+pub fn definition<'s>(i: &mut &'s str) -> Result<Definition> {
+    seq!{Definition{
+        _: '@',
+        outputs: separated(1.., output, (',', multispace0)),
         _: multispace0,
         _: '=',
         _: multispace0,
-        value: invocation
-    }}.parse_next(i)
+        name: identifier,
+        _: multispace0,
+        _: '(',
+        _: multispace0,
+        inputs: separated(0.., input, (',', multispace0)),
+        _: multispace0,
+        _: ')',
+        _: multispace0,
+        callbacks: repeat(0.., terminated(callback, multispace0))
+    }}.context(StrContext::Label("definition")).parse_next(i)
 }
 
 pub fn comment<'s>(i: &mut &'s str) -> Result<Comment> {
     seq!{Comment{
         _: '#',
         content: till_line_ending.map(str::trim).map(str::to_string)
-    }}.parse_next(i)
+    }}.context(StrContext::Label("comment")).parse_next(i)
 }
 
 pub fn statement<'s>(i: &mut &'s str) -> Result<Statement> {
     alt((
         invocation.map(Statement::Invocation),
-        assignment.map(Statement::Assignment),
+        definition.map(Statement::Definition),
         comment.map(Statement::Comment),
-    )).parse_next(i)
+    )).context(StrContext::Label("statement")).parse_next(i)
 }
 
-pub fn file<'s>(i: &mut &'s str) -> Result<Code> {
-    seq!{Code{
+pub fn file<'s>(i: &mut &'s str) -> Result<File> {
+    seq!{File{
         _: multispace0,
         statements: repeat(0.., terminated(statement, multispace0)),
-    }}.parse_next(i)
+    }}.context(StrContext::Label("file")).parse_next(i)
 }

@@ -55,13 +55,13 @@ y: y = touch_sensor()
 Callbacks are defined by position or name after the inputs.
 
 ```py
-if(greater_than(random(), 0.5)) true: {
+if(greater_than(random(), 0.5)) true {
     win()
-} false: {
+} false {
     lose()
 }
 
-i = loop(_, 5) do: {
+i = loop(_, 5) do {
     inspect(i)
 }
 ```
@@ -89,7 +89,7 @@ Nodes can be defined after the `def` keyword with their outputs, name, inputs
 and entries in that order.
 
 ```py
-def result = lerp(from, to, amount): {
+@result = lerp(from, to, amount) {
     result = add(from, multiply(subtract(to, from), amount))
 }
 ```
