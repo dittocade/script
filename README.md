@@ -13,14 +13,13 @@ Nodes are similar to expressions or statements in text-based programming.
 ### I/O
 
 Nodes can optionally be invoked with _inputs_ and provide _outputs_. Builtin
-nodes can also be passed _options__, custom data which must be known at transpile time and cannot be changed by any
+nodes can also be passed _options_, custom data which must be known at transpile time and cannot be changed by any
 inputs. Inputs and options not passed remain set to a default value, while
 unused outputs are discarded.
 
 ### Execution flow
 
-Nodes can provide multiple _entries_ that can be called by other nodes and
-_callbacks_ that will call further nodes.
+Nodes can provide multiple _callbacks_ that will call further nodes.
 
 ## Syntax
 
@@ -32,9 +31,9 @@ or left out using `_`. Positional options are passed after positional inputs.
 
 ```py
 set_score(5) # Input by position
-set_score(coins 3) # Input by name
+set_score(coins: 3) # Input by name
 set_score(_, 3) # Skip input
-set_score(5, _, most_points) # Mixed inputs and options
+set_score(5, _, points) # Mixed inputs and options
 win(delay: 20) # Option by name
 ```
 
@@ -47,7 +46,7 @@ reusable labels. They work by assigning a value to a named literal to be used as
 obj = grass()
 obj = clone(obj)
 _, y = touch_sensor()
-y: y = touch_sensor()
+y: height = touch_sensor()
 ```
 
 ### Callbacks
@@ -55,14 +54,14 @@ y: y = touch_sensor()
 Callbacks are defined by position or name after the inputs.
 
 ```py
-if(greater_than(random(), 0.5)) true {
-    win()
+if(random() < 0.5) true {
+  win()
 } false {
-    lose()
+  lose()
 }
 
-i = loop(_, 5) do {
-    inspect(i)
+loop(_, 5) do |i| {
+  inspect(i)
 }
 ```
 
@@ -75,7 +74,7 @@ Literals might behave differently when used as inputs.
 Numeric literals will be transformed into number nodes.
 
 ```py
--1.5 # num(-1.5)
+-1.5 # negate(num(1.5))
 3.14159 # num(3.14159)
 ```
 
@@ -85,12 +84,19 @@ Named literals will be transformed to labels for assigned values. See [assignmen
 
 ### Defining nodes
 
-Nodes can be defined after the `def` keyword with their outputs, name, inputs
-and entries in that order.
+Nodes can be defined after the `def` keyword with their name, inputs, callbacks, outputs and statements in that order.
 
 ```py
-@result = lerp(from, to, amount) {
-    result = add(from, multiply(subtract(to, from), amount))
+def lerp(from, to, amount) |result| {
+  result = from + (to - from) * amount
+}
+
+def russian_roulette(chance) pass, die {
+  if(random() < chance) true {
+    die()
+  } false {
+    pass()
+  }
 }
 ```
 

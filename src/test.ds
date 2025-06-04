@@ -1,19 +1,32 @@
 set_score(5) # Input by position
-set_score(coins 3) # Input by name
+set_score(coins: 3) # Input by name
 set_score(_, 3) # Skip input
-set_score(5, _, most_points) # Mixed inputs and options
+set_score(5, _, points) # Mixed inputs and options
 win(delay: 20) # Option by name
 
-if(greater_than(random(), 0.5)) true {
-    win()
+obj = grass()
+obj = clone(obj)
+_, y = touch_sensor()
+y: height = touch_sensor()
+
+if(random() < 0.5) true {
+  win()
 } false {
-    lose()
+  lose()
 }
 
-i = loop(_, 5) do {
-    inspect(i)
+loop(_, 5) do |i| {
+  inspect(i)
 }
 
-@result = lerp(from, to, amount) {
-    result = add(from, multiply(subtract(to, from), amount))
+def lerp(from, to, amount) |result| {
+  result = from + (to - from) * amount
+}
+
+def russian_roulette(chance) pass, die {
+  if(random() < chance) true {
+    die()
+  } false {
+    pass()
+  }
 }
