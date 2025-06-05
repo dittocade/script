@@ -1,5 +1,8 @@
-use std::{io::{self, Read}, iter::repeat_with};
 use matrix::Matrix3;
+use std::{
+    io::{self, Read},
+    iter::repeat_with,
+};
 
 mod matrix;
 
@@ -45,36 +48,59 @@ pub struct Chunk {
 impl Chunk {
     pub fn read(file: &mut impl Read) -> io::Result<Self> {
         let flags = read_flags(file)?;
-        let [
-            has_wires,
-            has_values,
-            has_blocks,
-            has_faces,
-            is_multi,
-            has_collider,
-            is_locked,
-            _,
-            has_color,
-            _,
-            _,
-            has_name,
-            has_kind,
-            ..
-        ] = flags[..] else {
+        let [has_wires, has_values, has_blocks, has_faces, is_multi, has_collider, is_locked, _, has_color, _, _, has_name, has_kind, ..] =
+            flags[..]
+        else {
             unreachable!()
         };
         let chunk = Self {
             is_locked,
             kind: if has_kind { Some(read_u8(file)?) } else { None },
-            name: if has_name { Some(read_string(file)?)} else {None},
-            collider: if has_collider {Some(read_u8(file)?)} else {None},
-            id: if is_multi {Some(read_u16(file)?)} else {None},
-            offset: if is_multi {Some([read_u8(file)?, read_u8(file)?, read_u8(file)?])} else {None},
-            color: if has_color {Some(read_u8(file)?)} else {None},
-            faces: if has_faces { Some(read_faces(file)?)} else {None},
-            blocks: if has_blocks {Some(read_blocks(file)?)} else {None},
-            values: if has_values {Some(read_values(file)?)} else {None},
-            wires: if has_wires {Some(read_wires(file)?)} else {None},
+            name: if has_name {
+                Some(read_string(file)?)
+            } else {
+                None
+            },
+            collider: if has_collider {
+                Some(read_u8(file)?)
+            } else {
+                None
+            },
+            id: if is_multi {
+                Some(read_u16(file)?)
+            } else {
+                None
+            },
+            offset: if is_multi {
+                Some([read_u8(file)?, read_u8(file)?, read_u8(file)?])
+            } else {
+                None
+            },
+            color: if has_color {
+                Some(read_u8(file)?)
+            } else {
+                None
+            },
+            faces: if has_faces {
+                Some(read_faces(file)?)
+            } else {
+                None
+            },
+            blocks: if has_blocks {
+                Some(read_blocks(file)?)
+            } else {
+                None
+            },
+            values: if has_values {
+                Some(read_values(file)?)
+            } else {
+                None
+            },
+            wires: if has_wires {
+                Some(read_wires(file)?)
+            } else {
+                None
+            },
         };
         Ok(chunk)
     }
@@ -112,7 +138,7 @@ pub enum Data {
     Pointer(String),
     Object(String),
     Output(String),
-    Unknown(u8, String)
+    Unknown(u8, String),
 }
 
 impl Data {
@@ -141,15 +167,23 @@ pub struct Wire {
 }
 
 impl Wire {
-    pub fn read(file: &mut impl Read) -> io::Result<Self>  {
+    pub fn read(file: &mut impl Read) -> io::Result<Self> {
         Ok(Self {
-            position: [[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],],
-            offset: [[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],],
+            position: [
+                [read_u16(file)?, read_u16(file)?],
+                [read_u16(file)?, read_u16(file)?],
+                [read_u16(file)?, read_u16(file)?],
+            ],
+            offset: [
+                [read_u16(file)?, read_u16(file)?],
+                [read_u16(file)?, read_u16(file)?],
+                [read_u16(file)?, read_u16(file)?],
+            ],
         })
     }
 }
 
-fn read_u8(file: &mut  impl Read) -> io::Result<u8> {
+fn read_u8(file: &mut impl Read) -> io::Result<u8> {
     let mut buffer = [0; 1];
     file.read_exact(&mut buffer)?;
     Ok(buffer[0])
@@ -221,15 +255,21 @@ fn read_blocks(file: &mut impl Read) -> io::Result<Matrix3<u16>> {
 
 fn read_chunks(file: &mut impl Read) -> io::Result<Vec<Chunk>> {
     let length = read_u16(file)?;
-    repeat_with(|| Chunk::read(file)).take(length.into()).collect()
+    repeat_with(|| Chunk::read(file))
+        .take(length.into())
+        .collect()
 }
 
 fn read_values(file: &mut impl Read) -> io::Result<Vec<Value>> {
     let length = read_u16(file)?;
-    repeat_with(|| Value::read(file)).take(length.into()).collect()
+    repeat_with(|| Value::read(file))
+        .take(length.into())
+        .collect()
 }
 
 fn read_wires(file: &mut impl Read) -> io::Result<Vec<Wire>> {
     let length = read_u16(file)?;
-    repeat_with(|| Wire::read(file)).take(length.into()).collect()
+    repeat_with(|| Wire::read(file))
+        .take(length.into())
+        .collect()
 }

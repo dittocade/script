@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub struct Matrix3<T> {
     pub data: Vec<T>,
@@ -7,10 +6,7 @@ pub struct Matrix3<T> {
 
 impl<T> Matrix3<T> {
     pub fn new(dimensions: [usize; 3], data: Vec<T>) -> Self {
-        Self {
-            data,
-            dimensions,
-        }
+        Self { data, dimensions }
     }
 
     pub fn with_dimensions(dimensions @ [x, y, z]: [usize; 3]) -> Self {

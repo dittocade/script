@@ -19,17 +19,17 @@ pub struct Callback {
 
 #[derive(Debug)]
 pub enum Statement {
-    Invocation{
+    Invocation {
         name: String,
         inputs: Vec<Input>,
         outputs: Vec<Output>,
         callbacks: Vec<Callback>,
     },
-    Assignement{
+    Assignement {
         value: Expression,
         outputs: Vec<Output>,
     },
-    Definition{
+    Definition {
         name: String,
         inputs: Vec<String>,
         outputs: Vec<String>,
@@ -42,7 +42,7 @@ pub enum Statement {
 #[derive(Debug)]
 pub enum Modifier {
     Global,
-    Saved
+    Saved,
 }
 
 #[derive(Debug)]
@@ -51,11 +51,11 @@ pub enum Expression {
     Float(f64),
     Integer(i32),
     Boolean(bool),
-    Call{
+    Call {
         name: String,
         inputs: Vec<Input>,
     },
-    Variable{
+    Variable {
         modifier: Option<Modifier>,
         name: String,
     },

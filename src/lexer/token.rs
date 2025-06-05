@@ -1,11 +1,16 @@
 use std::fmt::{self, Debug};
 
-use winnow::{error::ContextError, stream::{ContainsToken, TokenSlice}, token::literal, Parser, Result};
+use winnow::{
+    error::ContextError,
+    stream::{ContainsToken, TokenSlice},
+    token::literal,
+    Parser, Result,
+};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Token<'s> {
     pub kind: Kind,
-    pub value: &'s str
+    pub value: &'s str,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
