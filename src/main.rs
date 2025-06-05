@@ -2,6 +2,7 @@ use winnow::{combinator::terminated, stream::TokenSlice, Parser};
 
 mod lexer;
 mod parser;
+mod game;
 
 fn main() {
     let filename = std::env::args().nth(1).unwrap();
