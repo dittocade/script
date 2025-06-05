@@ -1,5 +1,7 @@
-use std::{fs::File, io::{self, Read}, iter::repeat_with};
+use std::{io::{self, Read}, iter::repeat_with};
+use matrix::Matrix3;
 
+mod matrix;
 
 #[derive(Debug)]
 pub struct Game {
@@ -12,14 +14,14 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn read(file: &mut File) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn read(file: &mut impl Read) -> io::Result<Self> {
         let game = Self {
             app_version: read_u16(file)?,
             title: read_string(file)?,
             author: read_string(file)?,
             description: read_string(file)?,
             id_offset: read_u16(file)?,
-            chunks: read_vec(file, Chunk::read)?,
+            chunks: read_chunks(file)?,
         };
         Ok(game)
     }
@@ -35,13 +37,13 @@ pub struct Chunk {
     pub offset: Option<[u8; 3]>,
     pub color: Option<u8>,
     pub faces: Option<[[[[u8; 6]; 8]; 8]; 8]>,
-    pub blocks: Option<Vec<Vec<Vec<u16>>>>,
+    pub blocks: Option<Matrix3<u16>>,
     pub values: Option<Vec<Value>>,
     pub wires: Option<Vec<Wire>>,
 }
 
 impl Chunk {
-    pub fn read(file: &mut File) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn read(file: &mut impl Read) -> io::Result<Self> {
         let flags = read_flags(file)?;
         let [
             has_wires,
@@ -71,8 +73,8 @@ impl Chunk {
             color: if has_color {Some(read_u8(file)?)} else {None},
             faces: if has_faces { Some(read_faces(file)?)} else {None},
             blocks: if has_blocks {Some(read_blocks(file)?)} else {None},
-            values: if has_values {Some(read_vec(file, Value::read)?)} else {None},
-            wires: if has_wires {Some(read_vec(file, Wire::read)?)} else {None},
+            values: if has_values {Some(read_values(file)?)} else {None},
+            wires: if has_wires {Some(read_wires(file)?)} else {None},
         };
         Ok(chunk)
     }
@@ -86,7 +88,7 @@ pub struct Value {
 }
 
 impl Value {
-    pub fn read(file: &mut File) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn read(file: &mut impl Read) -> io::Result<Self> {
         let index = read_u8(file)?;
         let kind = read_u8(file)?;
         Ok(Self {
@@ -110,10 +112,11 @@ pub enum Data {
     Pointer(String),
     Object(String),
     Output(String),
+    Unknown(u8, String)
 }
 
 impl Data {
-    pub fn read(file: &mut File, kind: u8) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn read(file: &mut impl Read, kind: u8) -> io::Result<Self> {
         Ok(match kind {
             0x01 => Data::Int8(read_u8(file)?),
             0x02 => Data::Int16(read_u16(file)?),
@@ -126,7 +129,7 @@ impl Data {
             0x0A => Data::Pointer(read_string(file)?),
             0x10 => Data::Object(read_string(file)?),
             0x11 => Data::Output(read_string(file)?),
-            i => panic!("invalid data kind {}!", i),
+            _ => Data::Unknown(kind, read_string(file)?),
         })
     }
 }
@@ -138,7 +141,7 @@ pub struct Wire {
 }
 
 impl Wire {
-    pub fn read(file: &mut File) -> Result<Self, Box<dyn std::error::Error>>  {
+    pub fn read(file: &mut impl Read) -> io::Result<Self>  {
         Ok(Self {
             position: [[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],],
             offset: [[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],[read_u16(file)?, read_u16(file)?],],
@@ -146,44 +149,39 @@ impl Wire {
     }
 }
 
-fn read_u8(file: &mut File) -> io::Result<u8> {
+fn read_u8(file: &mut  impl Read) -> io::Result<u8> {
     let mut buffer = [0; 1];
     file.read_exact(&mut buffer)?;
     Ok(buffer[0])
 }
 
-fn read_u16(file: &mut File) -> io::Result<u16> {
+fn read_u16(file: &mut impl Read) -> io::Result<u16> {
     let mut buffer = [0; 2];
     file.read_exact(&mut buffer)?;
     Ok(u16::from_le_bytes(buffer))
 }
 
-fn read_f32(file: &mut File) -> io::Result<f32> {
+fn read_f32(file: &mut impl Read) -> io::Result<f32> {
     let mut buffer = [0; 4];
     file.read_exact(&mut buffer)?;
     Ok(f32::from_le_bytes(buffer))
 }
 
-fn read_string(file: &mut File) -> Result<String,  Box<dyn std::error::Error>> {
+fn read_string(file: &mut impl Read) -> io::Result<String> {
     let length = read_u8(file)?;
     let mut buffer = Vec::with_capacity(length as usize);
     file.take(length as u64).read_to_end(&mut buffer)?;
-    let string = String::from_utf8(buffer)?;
+    let string = String::from_utf8(buffer).unwrap();
     Ok(string)
 }
 
-fn read_flags(file: &mut File) -> io::Result<Vec<bool>> {
+fn read_flags(file: &mut impl Read) -> io::Result<Vec<bool>> {
     let flags = read_u16(file)?;
     let flags = (0..16).map(|i| flags & (0b1 << i) != 0).collect();
     Ok(flags)
 }
 
-fn read_vec<T>(file: &mut File, reader: fn(&mut File) -> Result<T, Box<dyn std::error::Error>>) -> Result<Vec<T>, Box<dyn std::error::Error>> {
-    let length = read_u16(file)?;
-    repeat_with(|| reader(file)).take(length.into()).collect()
-}
-
-fn read_faces(file: &mut File) -> io::Result<[[[[u8; 6]; 8]; 8]; 8]> {
+fn read_faces(file: &mut impl Read) -> io::Result<[[[[u8; 6]; 8]; 8]; 8]> {
     let mut faces = [[[[0; 6]; 8]; 8]; 8];
     let mut face @ mut x @ mut y @ mut z = 0usize;
     let colors = repeat_with(|| read_u8(file));
@@ -209,15 +207,29 @@ fn read_faces(file: &mut File) -> io::Result<[[[[u8; 6]; 8]; 8]; 8]> {
     Ok(faces)
 }
 
-fn read_blocks(file: &mut File) -> io::Result<Vec<Vec<Vec<u16>>>> {
-    let x = read_u16(file)?;
-    let y = read_u16(file)?;
-    let z = read_u16(file)?;
-    repeat_with(
-        || repeat_with(
-            || repeat_with(
-                || read_u16(file)
-            ).take(z.into()).collect()
-        ).take(y.into()).collect()
-    ).take(x.into()).collect()
+fn read_blocks(file: &mut impl Read) -> io::Result<Matrix3<u16>> {
+    let x = read_u16(file)?.into();
+    let y = read_u16(file)?.into();
+    let z = read_u16(file)?.into();
+    let capacity = x * y * z;
+    let mut data = Vec::<u16>::with_capacity(capacity);
+    let iterator = repeat_with(|| read_u16(file)).take(capacity).flatten();
+    data.extend(iterator);
+    let matrix = Matrix3::new([x, y, z], data);
+    Ok(matrix)
+}
+
+fn read_chunks(file: &mut impl Read) -> io::Result<Vec<Chunk>> {
+    let length = read_u16(file)?;
+    repeat_with(|| Chunk::read(file)).take(length.into()).collect()
+}
+
+fn read_values(file: &mut impl Read) -> io::Result<Vec<Value>> {
+    let length = read_u16(file)?;
+    repeat_with(|| Value::read(file)).take(length.into()).collect()
+}
+
+fn read_wires(file: &mut impl Read) -> io::Result<Vec<Wire>> {
+    let length = read_u16(file)?;
+    repeat_with(|| Wire::read(file)).take(length.into()).collect()
 }
