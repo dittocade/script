@@ -18,7 +18,7 @@ pub struct Game {
 impl Default for Game {
     fn default() -> Self {
         Self {
-            app_version: 32,
+            app_version: 31,
             title: "New Game".to_string(),
             author: "Unknown".to_string(),
             description: "A Fancade game".to_string(),
