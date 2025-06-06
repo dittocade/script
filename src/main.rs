@@ -1,11 +1,10 @@
 use clap::{Parser, Subcommand};
-use flate2::read::ZlibDecoder;
-use game::Data;
+use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
+use game::Game;
 use std::{
-    fs::{self, File},
-    io::{BufReader, Read},
+    fs::File,
+    io::{BufReader, BufWriter, Read},
     path::Path,
-    thread,
 };
 use winnow::{combinator::terminated, stream::TokenSlice, Parser as _};
 
@@ -36,6 +35,17 @@ enum Command {
         /// Path of the game to decode
         #[clap(short, long)]
         path: String,
+    },
+
+    /// Decode and re-encode a game binary
+    Recode {
+        /// Path of the game to decode
+        #[clap(short, long)]
+        path: String,
+
+        /// Path to store the re-encoded game at
+        #[clap(short, long)]
+        out: String,
     },
 }
 
@@ -74,14 +84,25 @@ fn main() {
 
         Command::Decode { path } => {
             let path = Path::new(&path);
-            let mut file = File::open(path).unwrap();
-            let mut file = ZlibDecoder::new(file);
-            let mut file = BufReader::new(file);
-            let game = game::Game::read(&mut file).unwrap();
-            let Ok(0) = file.read(&mut [0; 1]) else {
+            let file = File::open(path).unwrap();
+            let reader = ZlibDecoder::new(file);
+            let mut reader = BufReader::new(reader);
+            let game = Game::read(&mut reader).unwrap();
+            let Ok(0) = reader.read(&mut [0; 1]) else {
                 panic!("not all game data could be read!");
             };
             println!("{:?}", game);
+        }
+
+        Command::Recode { path, out } => {
+            let reader = File::open(path).unwrap();
+            let reader = ZlibDecoder::new(reader);
+            let mut reader = BufReader::new(reader);
+            let game = Game::read(&mut reader).unwrap();
+            let writer = File::create_new(out).unwrap();
+            let writer = BufWriter::new(writer);
+            let mut writer = ZlibEncoder::new(writer, Compression::best());
+            game.write(&mut writer).unwrap();
         }
     }
 }

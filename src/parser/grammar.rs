@@ -1,16 +1,19 @@
 #[derive(Debug)]
+#[allow(unused)]
 pub struct Input {
     pub label: Option<String>,
     pub value: Expression,
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct Output {
     pub label: Option<String>,
     pub name: Option<String>,
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct Callback {
     pub label: Option<String>,
     pub outputs: Vec<Output>,
@@ -18,6 +21,7 @@ pub struct Callback {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub enum Statement {
     Invocation {
         name: String,
@@ -40,12 +44,14 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub enum Modifier {
     Global,
     Saved,
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub enum Expression {
     Skip,
     Float(f64),
