@@ -225,9 +225,14 @@ fn read_faces(file: &mut impl Read) -> io::Result<Array4<u8>> {
 
 fn read_blocks(file: &mut impl Read) -> io::Result<Array3<u16>> {
     let dimensions = [read_u16(file)?.into(), read_u16(file)?.into(), read_u16(file)?.into()];
-    let capacity = dimensions.iter().product();
-    let data = repeat_with(|| read_u16(file)).take(capacity).collect::<io::Result<_>>()?;
-    let data = Array::from_vec(data);
+    let capacity: usize = dimensions.iter().product();
+    let mut data = vec![0; capacity * 2];
+    file.read_exact(&mut data[..])?;
+    let data = data[..].chunks(2).map(|v: &[u8]| match v {
+        &[a, b] => u16::from_le_bytes([a, b]),
+        _ => unreachable!(),
+    });
+    let data = Array::from_iter(data);
     let data = data.into_shape_with_order(dimensions).unwrap();
     Ok(data)
 }
