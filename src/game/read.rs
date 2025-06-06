@@ -29,17 +29,17 @@ impl Chunk {
         };
         Ok(Self {
             is_locked,
-            kind: if has_kind { Some(read_u8(file)?) } else { None },
+            kind: (if has_kind { Some(read_u8(file)?) } else { None }).into(),
             name: if has_name {
                 Some(read_string(file)?)
             } else {
                 None
             },
-            collider: if has_collider {
+            collider: (if has_collider {
                 Some(read_u8(file)?)
             } else {
                 None
-            },
+            }).into(),
             multi: if is_multi {
                 Some(Multi {
                     id: read_u16(file)?,

@@ -18,15 +18,17 @@ impl Game {
 impl Chunk {
     #[allow(unused)]
     pub fn write(&self, file: &mut impl Write) -> io::Result<()> {
+        let collider: Option<u8> = self.collider.into();
+        let kind: Option<u8> = self.kind.into();
         let has_wires = self.wires.is_some();
         let has_values = self.values.is_some();
         let has_blocks = self.blocks.is_some();
         let has_faces = self.faces.is_some();
         let is_multi = self.multi.is_some();
-        let has_collider = self.collider.is_some();
+        let has_collider = collider.is_some();
         let has_color = self.color.is_some();
         let has_name = self.name.is_some();
-        let has_kind = self.kind.is_some();
+        let has_kind = kind.is_some();
         
         let flags = [
             has_wires,
@@ -48,13 +50,13 @@ impl Chunk {
         ];
         write_flags(file, flags)?;
 
-        if let Some(kind) = self.kind {
+        if let Some(kind) = kind {
             write_u8(file, kind)?;
         }
         if let Some(name) = &self.name {
             write_string(file, &name)?;
         }
-        if let Some(collider) = self.collider {
+        if let Some(collider) = collider {
             write_u8(file, collider)?;
         }
         if let Some(multi) = &self.multi {

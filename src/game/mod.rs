@@ -32,15 +32,80 @@ impl Default for Game {
 #[allow(unused)]
 pub struct Chunk {
     pub is_locked: bool,
-    pub kind: Option<u8>,
+    pub kind: Kind,
     pub name: Option<String>,
-    pub collider: Option<u8>,
+    pub collider: Collider,
     pub multi: Option<Multi>,
     pub color: Option<u8>,
     pub faces: Option<Array4<u8>>,
     pub blocks: Option<Array3<u16>>,
     pub values: Option<Vec<Value>>,
     pub wires: Option<Vec<Wire>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(unused)]
+pub enum Kind {
+    Rigid,
+    Physics,
+    Script,
+    Level,
+}
+
+impl From<Option<u8>> for Kind {
+    fn from(value: Option<u8>) -> Self {
+        match value {
+            None => Kind::Rigid,
+            Some(value) => match value {
+                0x01 => Kind::Physics,
+                0x02 => Kind::Script,
+                0x03 => Kind::Level,
+                _ => panic!("invalid chunk kind!")
+            }
+        }
+    }
+}
+
+impl Into<Option<u8>> for Kind {
+    fn into(self) -> Option<u8> {
+        match self {
+            Kind::Rigid => None,
+            Kind::Physics => Some(0x01),
+            Kind::Script => Some(0x02),
+            Kind::Level => Some(0x03),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(unused)]
+pub enum Collider {
+    Box,
+    Passthrough,
+    Sphere,
+}
+
+impl From<Option<u8>> for Collider {
+    fn from(value: Option<u8>) -> Self {
+        match value {
+            None => Collider::Box,
+            Some(value) => match value {
+                0x00 => Collider::Passthrough,
+                0x02 => Collider::Sphere,
+                _ => panic!("invalid chunk collider!")
+            }
+        }
+    }
+}
+
+impl Into<Option<u8>> for Collider {
+    fn into(self) -> Option<u8> {
+        match self {
+            Collider::Box => None,
+            Collider::Passthrough => Some(0x00),
+            Collider::Sphere => Some(0x02),
+        }
+    }
 }
 
 #[derive(Debug)]
