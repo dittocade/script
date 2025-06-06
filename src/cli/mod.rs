@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
 use crate::{game::Game, lexer, parser, transpiler::transpile};
 use std::{
-    error::Error, fmt::Debug, fs::File, io::{stdout, BufReader, BufWriter, Read, Write}, path::Path
+    error::Error, fmt::Debug, fs::File, io::{stdout, BufReader, BufWriter, Read, Write}
 };
 use winnow::{combinator::terminated, stream::TokenSlice, Parser as _};
 
@@ -24,10 +24,10 @@ pub enum Command {
         path: String,
 
         /// Where to store the output
-        #[clap(short, long, default_value = "stdout")]
+        #[clap(short, long)]
         out: Option<String>,
 
-        /// How to encode the compiled script
+        /// How to encode the output
         #[clap(short, long, default_value_t, value_enum)]
         encoding: Encoding,
     },
@@ -39,14 +39,14 @@ pub enum Command {
         path: String,
 
         /// Where to store the output
-        #[clap(short, long, default_value = "stdout")]
+        #[clap(short, long)]
         out: Option<String>,
 
-        /// How to encode the game
+        /// How to encode the output
         #[clap(short, long, default_value_t, value_enum)]
         encoding: Encoding,
 
-        /// How to decode the game
+        /// How to decode the input
         #[clap(short, long, default_value_t, value_enum)]
         decoding: Encoding,
     },
