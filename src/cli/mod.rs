@@ -48,7 +48,7 @@ pub enum Command {
 
         /// How to decode the input
         #[clap(short, long, default_value_t, value_enum)]
-        decoding: Encoding,
+        decoding: Decoding,
     },
 }
 
@@ -57,8 +57,14 @@ pub enum Encoding {
     #[default]
     Zlib,
     Raw,
-    Zip,
     Debug,
+}
+
+#[derive(ValueEnum, Default, Clone, Debug)]
+pub enum Decoding {
+    #[default]
+    Zlib,
+    Raw,
 }
 
 pub fn run() -> Result<(), Box<dyn Error>> {
@@ -106,17 +112,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         Command::Load { path, out, encoding , decoding} => {
             let file = File::open(&path).unwrap();
             let reader: Box<dyn Read> = match decoding {
-                Encoding::Zlib => {
+                Decoding::Zlib => {
                     Box::new(ZlibDecoder::new(file))
                 },
-                Encoding::Raw => {
+                Decoding::Raw => {
                     Box::new(file)
-                },
-                Encoding::Zip => {
-                    todo!()
-                },
-                Encoding::Debug => {
-                    todo!()
                 },
             };
             let mut reader = BufReader::new(reader);
@@ -146,9 +146,6 @@ fn write_game_with_encoding(mut writer: &mut impl Write, game: Game, encoding: E
         },
         Encoding::Raw => {
             game.write(&mut writer).unwrap();
-        },
-        Encoding::Zip => {
-            todo!();
         },
         Encoding::Debug => {
             write!(writer, "{:#?}", game).unwrap();
