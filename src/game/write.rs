@@ -175,7 +175,7 @@ fn write_faces(file: &mut impl Write, faces: &Array4<u8>) -> io::Result<()> {
 }
 
 fn write_blocks(file: &mut impl Write, blocks: &Array3<u16>) -> io::Result<()> {
-    let (x, y, z) = blocks.dim();
+    let (z, y, x) = blocks.dim();
     let dimensions: Vec<_> = [x as u16, y as u16, z as u16].iter().flat_map(|v| v.to_le_bytes()).collect();
     file.write_all(&dimensions[..])?;
 

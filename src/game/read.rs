@@ -162,11 +162,12 @@ fn read_faces(file: &mut impl Read) -> io::Result<Array4<u8>> {
 }
 
 fn read_blocks(file: &mut impl Read) -> io::Result<Array3<u16>> {
-    let dimensions = [
+    let [z, y, x] = [
         read_u16(file)?.into(),
         read_u16(file)?.into(),
         read_u16(file)?.into(),
     ];
+    let dimensions = [x, y, z];
     let capacity: usize = dimensions.iter().product();
     let mut data = vec![0; capacity * 2];
     file.read_exact(&mut data[..])?;
