@@ -15,6 +15,19 @@ pub struct Game {
     pub chunks: Vec<Chunk>,
 }
 
+impl Default for Game {
+    fn default() -> Self {
+        Self {
+            app_version: 32,
+            title: "New Game".to_string(),
+            author: "Unknown".to_string(),
+            description: "A Fancade game".to_string(),
+            id_offset: 597,
+            chunks: Default::default(),
+        }
+    }
+}
+
 #[derive(Debug)]
 #[allow(unused)]
 pub struct Chunk {
