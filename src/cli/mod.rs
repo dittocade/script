@@ -23,28 +23,32 @@ pub enum Command {
         #[clap(short, long)]
         path: String,
 
-        /// Path to store the compiled script at
+        /// Where to store the output
         #[clap(short, long)]
         out: Option<String>,
 
         /// How to encode the compiled script
-        #[clap(short, long)]
+        #[clap(short, long, default_value_t, value_enum)]
         encoding: Encoding,
     },
 
     /// Load a game binary
     Load {
-        /// Path of the game to decode
+        /// Path of the game to load
         #[clap(short, long)]
         path: String,
 
-        /// Path to store the compiled script at
+        /// Where to store the output
         #[clap(short, long)]
         out: Option<String>,
 
         /// How to encode the game
-        #[clap(short, long)]
+        #[clap(short, long, default_value_t, value_enum)]
         encoding: Encoding,
+
+        /// How to decode the game
+        #[clap(short, long, default_value_t, value_enum)]
+        decoding: Encoding,
     },
 }
 
@@ -99,9 +103,22 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             write_game_with_encoding(&mut writer, game, encoding);
         }
 
-        Command::Load { path, out, encoding } => {
+        Command::Load { path, out, encoding , decoding} => {
             let file = File::open(&path).unwrap();
-            let reader = ZlibDecoder::new(file);
+            let reader: Box<dyn Read> = match decoding {
+                Encoding::Zlib => {
+                    Box::new(ZlibDecoder::new(file))
+                },
+                Encoding::Raw => {
+                    Box::new(file)
+                },
+                Encoding::Zip => {
+                    todo!()
+                },
+                Encoding::Debug => {
+                    todo!()
+                },
+            };
             let mut reader = BufReader::new(reader);
 
             let game = Game::read(&mut reader).unwrap();
@@ -131,7 +148,7 @@ fn write_game_with_encoding(mut writer: &mut impl Write, game: Game, encoding: E
             game.write(&mut writer).unwrap();
         },
         Encoding::Zip => {
-            unimplemented!();
+            todo!();
         },
         Encoding::Debug => {
             write!(writer, "{:#?}", game).unwrap();
