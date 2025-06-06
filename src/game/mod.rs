@@ -43,10 +43,11 @@ pub struct Chunk {
     pub wires: Option<Vec<Wire>>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 #[allow(unused)]
 pub enum Kind {
-    Rigid,
+    #[default]
+    Default,
     Physics,
     Script,
     Level,
@@ -55,7 +56,7 @@ pub enum Kind {
 impl From<Option<u8>> for Kind {
     fn from(value: Option<u8>) -> Self {
         match value {
-            None => Kind::Rigid,
+            None => Kind::Default,
             Some(value) => match value {
                 0x01 => Kind::Physics,
                 0x02 => Kind::Script,
@@ -69,7 +70,7 @@ impl From<Option<u8>> for Kind {
 impl Into<Option<u8>> for Kind {
     fn into(self) -> Option<u8> {
         match self {
-            Kind::Rigid => None,
+            Kind::Default => None,
             Kind::Physics => Some(0x01),
             Kind::Script => Some(0x02),
             Kind::Level => Some(0x03),
@@ -77,16 +78,11 @@ impl Into<Option<u8>> for Kind {
     }
 }
 
-impl Default for Kind {
-    fn default() -> Self {
-        Self::from(None)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 #[allow(unused)]
 pub enum Collider {
-    Box,
+    #[default]
+    Default,
     Passthrough,
     Sphere,
 }
@@ -94,7 +90,7 @@ pub enum Collider {
 impl From<Option<u8>> for Collider {
     fn from(value: Option<u8>) -> Self {
         match value {
-            None => Collider::Box,
+            None => Collider::Default,
             Some(value) => match value {
                 0x00 => Collider::Passthrough,
                 0x02 => Collider::Sphere,
@@ -107,16 +103,10 @@ impl From<Option<u8>> for Collider {
 impl Into<Option<u8>> for Collider {
     fn into(self) -> Option<u8> {
         match self {
-            Collider::Box => None,
+            Collider::Default => None,
             Collider::Passthrough => Some(0x00),
             Collider::Sphere => Some(0x02),
         }
-    }
-}
-
-impl Default for Collider {
-    fn default() -> Self {
-        Self::from(None)
     }
 }
 
