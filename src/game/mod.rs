@@ -1,4 +1,4 @@
-use matrix::Matrix3;
+use matrix::{Matrix, Matrix3, Matrix4};
 use std::{
     io::{self, Read},
     iter::repeat_with,
@@ -39,7 +39,7 @@ pub struct Chunk {
     pub id: Option<u16>,
     pub offset: Option<[u8; 3]>,
     pub color: Option<u8>,
-    pub faces: Option<[[[[u8; 6]; 8]; 8]; 8]>,
+    pub faces: Option<Matrix4<u8>>,
     pub blocks: Option<Matrix3<u16>>,
     pub values: Option<Vec<Value>>,
     pub wires: Option<Vec<Wire>>,
@@ -215,41 +215,19 @@ fn read_flags(file: &mut impl Read) -> io::Result<Vec<bool>> {
     Ok(flags)
 }
 
-fn read_faces(file: &mut impl Read) -> io::Result<[[[[u8; 6]; 8]; 8]; 8]> {
-    let mut faces = [[[[0; 6]; 8]; 8]; 8];
-    let mut face @ mut x @ mut y @ mut z = 0usize;
-    let colors = repeat_with(|| read_u8(file));
-    for color in colors {
-        faces[z][y][x][face] = color?;
-        face += 1;
-        if face == 6 {
-            face = 0;
-            x += 1;
-            if x == 8 {
-                x = 0;
-                y += 1;
-                if y == 8 {
-                    y = 0;
-                    z += 1;
-                    if z == 8 {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    Ok(faces)
+fn read_faces(file: &mut impl Read) -> io::Result<Matrix4<u8>> {
+    let mut matrix = Matrix4::with_default([6, 8, 8, 8]);
+    let data = matrix.get_mut_data();
+    file.read_exact(&mut data[..])?;
+    Ok(matrix)
 }
 
 fn read_blocks(file: &mut impl Read) -> io::Result<Matrix3<u16>> {
-    let x = read_u16(file)?.into();
-    let y = read_u16(file)?.into();
-    let z = read_u16(file)?.into();
-    let capacity = x * y * z;
-    let mut data = Vec::<u16>::with_capacity(capacity);
+    let dimensions = [read_u16(file)?.into(), read_u16(file)?.into(), read_u16(file)?.into()];
+    let capacity = Matrix3::<u8>::calculate_capacity(&dimensions);
     let iterator = repeat_with(|| read_u16(file)).take(capacity).flatten();
-    data.extend(iterator);
-    let matrix = Matrix3::new([x, y, z], data);
+    let data = iterator.collect();
+    let matrix = Matrix3::new(dimensions, data);
     Ok(matrix)
 }
 
