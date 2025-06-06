@@ -77,6 +77,12 @@ impl Into<Option<u8>> for Kind {
     }
 }
 
+impl Default for Kind {
+    fn default() -> Self {
+        Self::from(None)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 #[allow(unused)]
 pub enum Collider {
@@ -105,6 +111,12 @@ impl Into<Option<u8>> for Collider {
             Collider::Passthrough => Some(0x00),
             Collider::Sphere => Some(0x02),
         }
+    }
+}
+
+impl Default for Collider {
+    fn default() -> Self {
+        Self::from(None)
     }
 }
 
