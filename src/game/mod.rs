@@ -1,10 +1,8 @@
-use matrix::{Matrix, Matrix3, Matrix4};
+use ndarray::{Array, Array3, Array4};
 use std::{
     io::{self, Read},
     iter::repeat_with,
 };
-
-mod matrix;
 
 #[derive(Debug)]
 pub struct Game {
@@ -39,8 +37,8 @@ pub struct Chunk {
     pub id: Option<u16>,
     pub offset: Option<[u8; 3]>,
     pub color: Option<u8>,
-    pub faces: Option<Matrix4<u8>>,
-    pub blocks: Option<Matrix3<u16>>,
+    pub faces: Option<Array4<u8>>,
+    pub blocks: Option<Array3<u16>>,
     pub values: Option<Vec<Value>>,
     pub wires: Option<Vec<Wire>>,
 }
@@ -215,20 +213,23 @@ fn read_flags(file: &mut impl Read) -> io::Result<Vec<bool>> {
     Ok(flags)
 }
 
-fn read_faces(file: &mut impl Read) -> io::Result<Matrix4<u8>> {
-    let mut matrix = Matrix4::with_default([6, 8, 8, 8]);
-    let data = matrix.get_mut_data();
+fn read_faces(file: &mut impl Read) -> io::Result<Array4<u8>> {
+    let dimensions = [6, 8, 8, 8];
+    let capacity = dimensions.iter().product();
+    let mut data = vec![0; capacity];
     file.read_exact(&mut data[..])?;
-    Ok(matrix)
+    let data = Array::from_vec(data);
+    let data = data.into_shape_with_order(dimensions).unwrap();
+    Ok(data)
 }
 
-fn read_blocks(file: &mut impl Read) -> io::Result<Matrix3<u16>> {
+fn read_blocks(file: &mut impl Read) -> io::Result<Array3<u16>> {
     let dimensions = [read_u16(file)?.into(), read_u16(file)?.into(), read_u16(file)?.into()];
-    let capacity = Matrix3::<u8>::calculate_capacity(&dimensions);
-    let iterator = repeat_with(|| read_u16(file)).take(capacity).flatten();
-    let data = iterator.collect();
-    let matrix = Matrix3::new(dimensions, data);
-    Ok(matrix)
+    let capacity = dimensions.iter().product();
+    let data = repeat_with(|| read_u16(file)).take(capacity).collect::<io::Result<_>>()?;
+    let data = Array::from_vec(data);
+    let data = data.into_shape_with_order(dimensions).unwrap();
+    Ok(data)
 }
 
 fn read_chunks(file: &mut impl Read) -> io::Result<Vec<Chunk>> {
