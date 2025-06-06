@@ -2,9 +2,7 @@ use clap::{Parser, Subcommand};
 use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
 use crate::{game::Game, lexer, parser};
 use std::{
-    fs::File,
-    io::{BufReader, BufWriter, Read},
-    path::Path,
+    fmt::Debug, fs::File, io::{BufReader, BufWriter, Read, Write}, path::Path
 };
 use winnow::{combinator::terminated, stream::TokenSlice, Parser as _};
 
@@ -24,6 +22,10 @@ pub enum Command {
         /// Path of the script to compile
         #[clap(short, long)]
         path: String,
+
+        /// Path to store the compiled script at
+        #[clap(short, long)]
+        out: Option<String>,
     },
 
     /// Decode a game binary
@@ -31,6 +33,10 @@ pub enum Command {
         /// Path of the game to decode
         #[clap(short, long)]
         path: String,
+
+        /// Path to store the decoded game at
+        #[clap(short, long)]
+        out: Option<String>,
     },
 
     /// Decode and re-encode a game binary
@@ -41,7 +47,7 @@ pub enum Command {
 
         /// Path to store the re-encoded game at
         #[clap(short, long)]
-        out: String,
+        out: Option<String>,
     },
 }
 
@@ -49,9 +55,8 @@ pub fn run() {
     let args = Args::parse();
 
     match args.command {
-        Command::Build { path } => {
-            let path = Path::new(&path);
-            let content = std::fs::read_to_string(path).unwrap();
+        Command::Build { path, out} => {
+            let content = std::fs::read_to_string(&path).unwrap();
             let content = content.as_str();
             let tokens = lexer::tokens.parse(content);
             let Ok(tokens) = tokens else {
@@ -75,27 +80,30 @@ pub fn run() {
             };
             let grammar = terminated(parser::statements0, lexer::token::Kind::EndOfFile)
                 .parse(TokenSlice::new(&tokens));
-            println!("{:?}", grammar);
+
+            let mut writer = File::create_new(out.unwrap_or(path + ".out")).unwrap();
+            write!(writer, "{:?}", grammar).unwrap();
         }
 
-        Command::Decode { path } => {
-            let path = Path::new(&path);
-            let file = File::open(path).unwrap();
+        Command::Decode { path, out } => {
+            let file = File::open(&path).unwrap();
             let reader = ZlibDecoder::new(file);
             let mut reader = BufReader::new(reader);
             let game = Game::read(&mut reader).unwrap();
             let Ok(0) = reader.read(&mut [0; 1]) else {
                 panic!("not all game data could be read!");
             };
-            println!("{:?}", game);
+
+            let mut writer = File::create_new(out.unwrap_or(path + ".out")).unwrap();
+            write!(writer, "{:?}", game).unwrap()
         }
 
         Command::Recode { path, out } => {
-            let reader = File::open(path).unwrap();
+            let reader = File::open(&path).unwrap();
             let reader = ZlibDecoder::new(reader);
             let mut reader = BufReader::new(reader);
             let game = Game::read(&mut reader).unwrap();
-            let writer = File::create_new(out).unwrap();
+            let writer = File::create_new(out.unwrap_or(path + ".out")).unwrap();
             let writer = BufWriter::new(writer);
             let mut writer = ZlibEncoder::new(writer, Compression::best());
             game.write(&mut writer).unwrap();
