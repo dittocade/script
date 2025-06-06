@@ -20,11 +20,11 @@ pub enum Command {
     /// Compile a script
     Build {
         /// Path of the script to compile
-        #[clap(short, long)]
+        #[clap()]
         path: String,
 
         /// Where to store the output
-        #[clap(short, long)]
+        #[clap(short, long, default_value = "stdout")]
         out: Option<String>,
 
         /// How to encode the compiled script
@@ -35,11 +35,11 @@ pub enum Command {
     /// Load a game binary
     Load {
         /// Path of the game to load
-        #[clap(short, long)]
+        #[clap()]
         path: String,
 
         /// Where to store the output
-        #[clap(short, long)]
+        #[clap(short, long, default_value = "stdout")]
         out: Option<String>,
 
         /// How to encode the game
