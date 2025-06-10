@@ -57,6 +57,7 @@ pub enum Expression {
     Float(f64),
     Integer(i32),
     Boolean(bool),
+    String(String),
     Call {
         name: String,
         inputs: Vec<Input>,

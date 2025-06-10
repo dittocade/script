@@ -1,7 +1,7 @@
 use token::*;
 use winnow::{
     ascii::{digit1, multispace0},
-    combinator::{alt, dispatch, eof, opt, peek, preceded, repeat, terminated},
+    combinator::{alt, delimited, dispatch, eof, opt, peek, preceded, repeat, terminated},
     stream::AsChar,
     token::{any, take_while},
     Parser, Result,
@@ -48,7 +48,7 @@ pub fn token<'s>(i: &mut &'s str) -> Result<Token<'s>> {
         }),
         '$' => any.value(Kind::Modifier),
         '&' => any.value(Kind::Reference),
-        'a'..='z' | 'A'..='Z' => take_while(0.., |char: char| char.is_ascii_alphanumeric() || char == '_').map(|v| match v {
+        'a'..='z' | 'A'..='Z' => take_while(1.., |char: char| char.is_ascii_alphanumeric() || char == '_').map(|v| match v {
             "not" => Kind::Operator(Operator::Not),
             "and" => Kind::Operator(Operator::And),
             "or" => Kind::Operator(Operator::Or),
@@ -56,6 +56,7 @@ pub fn token<'s>(i: &mut &'s str) -> Result<Token<'s>> {
             "True" | "False" => Kind::Boolean,
             _ => Kind::Name,
         }),
+        '"' => delimited(any, take_while(0.., |char: char| char != '"'), any).value(Kind::String),
         '_' => any.value(Kind::Skip),
         ',' => any.value(Kind::Comma),
         ':' => any.value(Kind::Label),

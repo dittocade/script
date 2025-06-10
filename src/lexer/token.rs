@@ -30,6 +30,7 @@ pub enum Kind {
     Float,
     Integer,
     Boolean,
+    String,
     Skip,
     Comment,
     Unknown,

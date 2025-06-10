@@ -38,6 +38,10 @@ pub fn boolean(i: &mut Tokens) -> Result<bool> {
         .parse_next(i)
 }
 
+pub fn string(i: &mut Tokens) -> Result<String> {
+    Kind::String.map(|&v| v.value[1..v.value.len() - 1].to_string()).parse_next(i)
+}
+
 pub fn modifier(i: &mut Tokens) -> Result<Modifier> {
     Kind::Modifier
         .map(|v| match v.value {
@@ -95,6 +99,7 @@ pub fn simple_expression(i: &mut Tokens) -> Result<Expression> {
         float.map(Expression::Float),
         integer.map(Expression::Integer),
         boolean.map(Expression::Boolean),
+        string.map(Expression::String),
         call,
         variable,
     ))
