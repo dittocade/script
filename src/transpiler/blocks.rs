@@ -20,7 +20,7 @@ impl BlocksExt for Blocks {
             let prev = self.insert(pos, block);
             if let Some(prev) = prev {
                 return Err(anyhow!(
-                    "Tried to write block {} at {:?}, found existing block {}!",
+                    "Attempted to write block {} at {:?}, found existing block {}!",
                     block,
                     pos,
                     prev
@@ -65,7 +65,7 @@ pub fn calculate_ranges(blocks: &Blocks) -> [[i32; 3]; 3] {
     ]
 }
 
-pub fn resolve_blocks(blocks: &Blocks) -> Option<Array3<u16>> {
+pub fn resolve_blocks(blocks: Blocks) -> Option<Array3<u16>> {
     let [min, _, size] = calculate_ranges(&blocks);
     if size == [0; 3] {
         return None;
@@ -78,7 +78,7 @@ pub fn resolve_blocks(blocks: &Blocks) -> Option<Array3<u16>> {
             (z - min[2]) as usize,
             (y - min[1]) as usize,
             (x - min[0]) as usize,
-        ]] = *block;
+        ]] = block;
     }
 
     Some(resolved)

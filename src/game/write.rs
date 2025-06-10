@@ -21,7 +21,7 @@ impl Chunk {
         let collider: Option<u8> = self.collider.into();
         let kind: Option<u8> = self.kind.into();
         let has_wires = self.wires.is_some();
-        let has_values = self.values.is_some();
+        let has_values = self.opts.is_some();
         let has_blocks = self.blocks.is_some();
         let has_faces = self.faces.is_some();
         let is_part = self.part.is_some();
@@ -72,7 +72,7 @@ impl Chunk {
         if let Some(blocks) = &self.blocks {
             write_blocks(file, blocks)?;
         }
-        if let Some(values) = &self.values {
+        if let Some(values) = &self.opts {
             write_values(file, &values)?;
         }
         if let Some(wires) = &self.wires {

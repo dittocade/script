@@ -5,7 +5,7 @@ use crate::game::Wire;
 
 pub type Wires = Vec<([[i32; 3]; 2], [[u16; 3]; 2])>;
 
-pub fn resolve_wires(wires: &Wires, blocks: &Blocks) -> Option<Vec<Wire>> {
+pub fn resolve_wires(wires: Wires, blocks: &Blocks) -> Option<Vec<Wire>> {
     if wires.is_empty() {
         return None;
     }

@@ -64,7 +64,7 @@ impl Chunk {
             } else {
                 None
             },
-            values: if has_values {
+            opts: if has_values {
                 Some(read_values(file)?)
             } else {
                 None

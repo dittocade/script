@@ -39,7 +39,7 @@ pub struct Chunk {
     pub color: Option<u8>,
     pub faces: Option<Array4<u8>>,
     pub blocks: Option<Array3<u16>>,
-    pub values: Option<Vec<Opt>>,
+    pub opts: Option<Vec<Opt>>,
     pub wires: Option<Vec<Wire>>,
 }
 
@@ -125,7 +125,7 @@ pub struct Opt {
     pub data: OptData,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(unused)]
 pub enum OptData {
     Int8(u8),
