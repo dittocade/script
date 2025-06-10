@@ -129,8 +129,38 @@ pub fn transpile_expression(
 ) -> Result<()> {
     match &value {
         Expression::Skip => (),
-        Expression::Float(_) => todo!(),
-        Expression::Integer(_) => todo!(),
+        Expression::Float(value) => {
+            transpile_expression(
+                &Expression::Call {
+                    name: "number".to_string(),
+                    inputs: vec![Input { value: Expression::Float(*value), label: None}],
+                },
+                scripts,
+                blocks,
+                opts,
+                wires,
+                x,
+                z,
+                prev_pos,
+                prev_offset,
+            )?;
+        },
+        Expression::Integer(value) => {
+            transpile_expression(
+                &Expression::Call {
+                    name: "number".to_string(),
+                    inputs: vec![Input { value: Expression::Float(*value as f64), label: None}],
+                },
+                scripts,
+                blocks,
+                opts,
+                wires,
+                x,
+                z,
+                prev_pos,
+                prev_offset,
+            )?;
+        },
         Expression::Boolean(_) => todo!(),
         Expression::String(_) => unimplemented!(),
         Expression::Call { name, inputs } => {

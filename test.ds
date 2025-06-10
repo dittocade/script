@@ -1,1 +1,1 @@
-set_number_list(list_number(get_number("foo"), number(123)), add_numbers(number(456), number(789)))
+set_number_list(list_number(get_number("foo"), 123), add_numbers(456, 789))
