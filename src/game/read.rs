@@ -22,7 +22,7 @@ impl Game {
 impl Chunk {
     pub fn read(file: &mut impl Read) -> io::Result<Self> {
         let flags = read_flags(file)?;
-        let [has_wires, has_values, has_blocks, has_faces, is_multi, has_collider, is_locked, _, has_color, _, _, has_name, has_kind, ..] =
+        let [has_wires, has_values, has_blocks, has_faces, is_part, has_collider, is_locked, _, has_color, _, _, has_name, has_kind, ..] =
             flags[..]
         else {
             unreachable!()
@@ -39,9 +39,10 @@ impl Chunk {
                 Some(read_u8(file)?)
             } else {
                 None
-            }).into(),
-            multi: if is_multi {
-                Some(Multi {
+            })
+            .into(),
+            part: if is_part {
+                Some(Part {
                     id: read_u16(file)?,
                     offset: [read_u8(file)?, read_u8(file)?, read_u8(file)?],
                 })
@@ -77,7 +78,7 @@ impl Chunk {
     }
 }
 
-impl Value {
+impl Opt {
     pub fn read(file: &mut impl Read) -> io::Result<Self> {
         let index = read_u8(file)?;
         let kind = read_u8(file)?;
@@ -85,18 +86,18 @@ impl Value {
             index,
             position: [read_u16(file)?, read_u16(file)?, read_u16(file)?],
             data: match kind {
-                0x01 => Data::Int8(read_u8(file)?),
-                0x02 => Data::Int16(read_u16(file)?),
-                0x04 => Data::Float32(read_f32(file)?),
-                0x05 => Data::Vec([read_f32(file)?, read_f32(file)?, read_f32(file)?]),
-                0x06 => Data::String(read_string(file)?),
-                0x07 => Data::Execute(read_string(file)?),
-                0x08 => Data::Input(read_string(file)?),
-                0x09 => Data::This(read_string(file)?),
-                0x0A => Data::Pointer(read_string(file)?),
-                0x10 => Data::Object(read_string(file)?),
-                0x11 => Data::Output(read_string(file)?),
-                _ => Data::Unknown(kind, read_string(file)?),
+                0x01 => OptData::Int8(read_u8(file)?),
+                0x02 => OptData::Int16(read_u16(file)?),
+                0x04 => OptData::Float32(read_f32(file)?),
+                0x05 => OptData::Vec([read_f32(file)?, read_f32(file)?, read_f32(file)?]),
+                0x06 => OptData::Name(read_string(file)?),
+                0x07 => OptData::Execute(read_string(file)?),
+                0x08 => OptData::Input(read_string(file)?),
+                0x09 => OptData::This(read_string(file)?),
+                0x0A => OptData::Pointer(read_string(file)?),
+                0x10 => OptData::Object(read_string(file)?),
+                0x11 => OptData::Output(read_string(file)?),
+                _ => OptData::Unknown(kind, read_string(file)?),
             },
         })
     }
@@ -105,15 +106,13 @@ impl Value {
 impl Wire {
     pub fn read(file: &mut impl Read) -> io::Result<Self> {
         Ok(Self {
-            position: [
-                [read_u16(file)?, read_u16(file)?],
-                [read_u16(file)?, read_u16(file)?],
-                [read_u16(file)?, read_u16(file)?],
+            positions: [
+                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
+                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
             ],
-            offset: [
-                [read_u16(file)?, read_u16(file)?],
-                [read_u16(file)?, read_u16(file)?],
-                [read_u16(file)?, read_u16(file)?],
+            offsets: [
+                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
+                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
             ],
         })
     }
@@ -156,8 +155,7 @@ fn read_faces(file: &mut impl Read) -> io::Result<Array4<u8>> {
     let capacity = dimensions.iter().product();
     let mut data = vec![0; capacity];
     file.read_exact(&mut data[..])?;
-    let data = Array::from_vec(data);
-    let data = data.into_shape_with_order(dimensions).unwrap();
+    let data = Array4::from_shape_vec(dimensions, data).unwrap();
     Ok(data)
 }
 
@@ -187,9 +185,9 @@ fn read_chunks(file: &mut impl Read) -> io::Result<Vec<Chunk>> {
         .collect()
 }
 
-fn read_values(file: &mut impl Read) -> io::Result<Vec<Value>> {
+fn read_values(file: &mut impl Read) -> io::Result<Vec<Opt>> {
     let length = read_u16(file)?;
-    repeat_with(|| Value::read(file))
+    repeat_with(|| Opt::read(file))
         .take(length.into())
         .collect()
 }

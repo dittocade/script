@@ -24,18 +24,18 @@ impl Chunk {
         let has_values = self.values.is_some();
         let has_blocks = self.blocks.is_some();
         let has_faces = self.faces.is_some();
-        let is_multi = self.multi.is_some();
+        let is_part = self.part.is_some();
         let has_collider = collider.is_some();
         let has_color = self.color.is_some();
         let has_name = self.name.is_some();
         let has_kind = kind.is_some();
-        
+
         let flags = [
             has_wires,
             has_values,
             has_blocks,
             has_faces,
-            is_multi,
+            is_part,
             has_collider,
             self.is_locked,
             false,
@@ -59,7 +59,7 @@ impl Chunk {
         if let Some(collider) = collider {
             write_u8(file, collider)?;
         }
-        if let Some(multi) = &self.multi {
+        if let Some(multi) = &self.part {
             write_u16(file, multi.id)?;
             file.write_all(&multi.offset)?;
         }
@@ -82,23 +82,23 @@ impl Chunk {
     }
 }
 
-impl Value {
+impl Opt {
     pub fn write(&self, file: &mut impl Write) -> io::Result<()> {
         write_u8(file, self.index)?;
 
         let kind = match self.data {
-            Data::Int8(_) => 0x01,
-            Data::Int16(_) => 0x02,
-            Data::Float32(_) => 0x04,
-            Data::Vec(_) => 0x05,
-            Data::String(_) => 0x06,
-            Data::Execute(_) => 0x07,
-            Data::Input(_) => 0x08,
-            Data::This(_) => 0x09,
-            Data::Pointer(_) => 0x0A,
-            Data::Object(_) => 0x10,
-            Data::Output(_) => 0x11,
-            Data::Unknown(kind, _) => kind,
+            OptData::Int8(_) => 0x01,
+            OptData::Int16(_) => 0x02,
+            OptData::Float32(_) => 0x04,
+            OptData::Vec(_) => 0x05,
+            OptData::Name(_) => 0x06,
+            OptData::Execute(_) => 0x07,
+            OptData::Input(_) => 0x08,
+            OptData::This(_) => 0x09,
+            OptData::Pointer(_) => 0x0A,
+            OptData::Object(_) => 0x10,
+            OptData::Output(_) => 0x11,
+            OptData::Unknown(kind, _) => kind,
         };
         write_u8(file, kind)?;
 
@@ -109,21 +109,21 @@ impl Value {
             .collect();
         file.write_all(&position[..])?;
         match &self.data {
-            Data::Int8(data) => write_u8(file, *data),
-            Data::Int16(data) => write_u16(file, *data),
-            Data::Float32(data) => write_f32(file, *data),
-            Data::Vec(data) => {
+            OptData::Int8(data) => write_u8(file, *data),
+            OptData::Int16(data) => write_u16(file, *data),
+            OptData::Float32(data) => write_f32(file, *data),
+            OptData::Vec(data) => {
                 let data: Vec<_> = data.iter().flat_map(|pos| pos.to_le_bytes()).collect();
                 file.write_all(&data[..])
             }
-            Data::String(data) => write_string(file, &data),
-            Data::Execute(data) => write_string(file, &data),
-            Data::Input(data) => write_string(file, &data),
-            Data::This(data) => write_string(file, &data),
-            Data::Pointer(data) => write_string(file, &data),
-            Data::Object(data) => write_string(file, &data),
-            Data::Output(data) => write_string(file, &data),
-            Data::Unknown(_, data) => write_string(file, &data),
+            OptData::Name(data) => write_string(file, &data),
+            OptData::Execute(data) => write_string(file, &data),
+            OptData::Input(data) => write_string(file, &data),
+            OptData::This(data) => write_string(file, &data),
+            OptData::Pointer(data) => write_string(file, &data),
+            OptData::Object(data) => write_string(file, &data),
+            OptData::Output(data) => write_string(file, &data),
+            OptData::Unknown(_, data) => write_string(file, &data),
         }
     }
 }
@@ -131,14 +131,14 @@ impl Value {
 impl Wire {
     pub fn write(&self, file: &mut impl Write) -> io::Result<()> {
         let position: Vec<_> = self
-            .position
+            .positions
             .iter()
             .flatten()
             .flat_map(|pos| pos.to_le_bytes())
             .collect();
         file.write_all(&position[..])?;
         let offset: Vec<_> = self
-            .offset
+            .offsets
             .iter()
             .flatten()
             .flat_map(|pos| pos.to_le_bytes())
@@ -176,7 +176,10 @@ fn write_faces(file: &mut impl Write, faces: &Array4<u8>) -> io::Result<()> {
 
 fn write_blocks(file: &mut impl Write, blocks: &Array3<u16>) -> io::Result<()> {
     let (z, y, x) = blocks.dim();
-    let dimensions: Vec<_> = [x as u16, y as u16, z as u16].iter().flat_map(|v| v.to_le_bytes()).collect();
+    let dimensions: Vec<_> = [x as u16, y as u16, z as u16]
+        .iter()
+        .flat_map(|v| v.to_le_bytes())
+        .collect();
     file.write_all(&dimensions[..])?;
 
     let blocks: Vec<_> = blocks
@@ -191,7 +194,7 @@ fn write_chunks(file: &mut impl Write, chunks: &Vec<Chunk>) -> io::Result<()> {
     chunks.iter().map(|chunk| chunk.write(file)).collect()
 }
 
-fn write_values(file: &mut impl Write, values: &Vec<Value>) -> io::Result<()> {
+fn write_values(file: &mut impl Write, values: &Vec<Opt>) -> io::Result<()> {
     write_u16(file, values.len() as u16)?;
     values.iter().map(|value| value.write(file)).collect()
 }

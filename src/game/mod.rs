@@ -35,11 +35,11 @@ pub struct Chunk {
     pub kind: Kind,
     pub name: Option<String>,
     pub collider: Collider,
-    pub multi: Option<Multi>,
+    pub part: Option<Part>,
     pub color: Option<u8>,
     pub faces: Option<Array4<u8>>,
     pub blocks: Option<Array3<u16>>,
-    pub values: Option<Vec<Value>>,
+    pub values: Option<Vec<Opt>>,
     pub wires: Option<Vec<Wire>>,
 }
 
@@ -61,8 +61,8 @@ impl From<Option<u8>> for Kind {
                 0x01 => Kind::Physics,
                 0x02 => Kind::Script,
                 0x03 => Kind::Level,
-                _ => panic!("invalid chunk kind!")
-            }
+                _ => panic!("invalid chunk kind!"),
+            },
         }
     }
 }
@@ -94,8 +94,8 @@ impl From<Option<u8>> for Collider {
             Some(value) => match value {
                 0x00 => Collider::Passthrough,
                 0x02 => Collider::Sphere,
-                _ => panic!("invalid chunk collider!")
-            }
+                _ => panic!("invalid chunk collider!"),
+            },
         }
     }
 }
@@ -112,27 +112,27 @@ impl Into<Option<u8>> for Collider {
 
 #[derive(Debug)]
 #[allow(unused)]
-pub struct Multi {
+pub struct Part {
     pub id: u16,
     pub offset: [u8; 3],
 }
 
 #[derive(Debug)]
 #[allow(unused)]
-pub struct Value {
+pub struct Opt {
     pub index: u8,
     pub position: [u16; 3],
-    pub data: Data,
+    pub data: OptData,
 }
 
 #[derive(Debug)]
 #[allow(unused)]
-pub enum Data {
+pub enum OptData {
     Int8(u8),
     Int16(u16),
     Float32(f32),
     Vec([f32; 3]),
-    String(String),
+    Name(String),
     Execute(String),
     Input(String),
     This(String),
@@ -144,7 +144,49 @@ pub enum Data {
 
 #[derive(Debug)]
 #[allow(unused)]
+pub enum OptKind {
+    Int8,
+    Int16,
+    Float32,
+    Vec,
+    Name,
+    Execute,
+    Input,
+    This,
+    Pointer,
+    Object,
+    Output,
+    Unknown(u8), // TODO: find out what these types of data are used for
+}
+
+#[derive(Debug)]
+#[allow(unused)]
 pub struct Wire {
-    pub position: [[u16; 2]; 3],
-    pub offset: [[u16; 2]; 3],
+    pub positions: [[u16; 3]; 2],
+    pub offsets: [[u16; 3]; 2],
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+pub enum WireKind {
+    Execute,
+    Value(ValueKind),
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+pub enum ValueKind {
+    Raw(RawKind),
+    Reference(RawKind),
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+pub enum RawKind {
+    Number,
+    Vector,
+    Rotation,
+    Truth,
+    Object,
+    Constraint,
 }

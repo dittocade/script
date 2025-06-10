@@ -1,8 +1,11 @@
+use crate::{game::Game, lexer, parser, transpiler::transpile_statements};
 use clap::{Parser, Subcommand, ValueEnum};
 use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
-use crate::{game::Game, lexer, parser, transpiler::transpile};
 use std::{
-    error::Error, fmt::Debug, fs::File, io::{stdout, BufReader, BufWriter, Read, Write}
+    error::Error,
+    fmt::Debug,
+    fs::File,
+    io::{stdout, BufReader, BufWriter, Read, Write},
 };
 use winnow::{combinator::terminated, stream::TokenSlice, Parser as _};
 
@@ -71,7 +74,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     match args.command {
-        Command::Build { path, out, encoding} => {
+        Command::Build {
+            path,
+            out,
+            encoding,
+        } => {
             let content = std::fs::read_to_string(&path).unwrap();
             let content = content.as_str();
             let tokens = lexer::tokens.parse(content);
@@ -93,13 +100,14 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                         panic!("{}", rendered);
                     }
                 };
-                return Ok(())
+                return Ok(());
             };
 
             let grammar = terminated(parser::statements0, lexer::token::Kind::EndOfFile)
-                .parse(TokenSlice::new(&tokens)).unwrap();
+                .parse(TokenSlice::new(&tokens))
+                .unwrap();
 
-            let game = transpile(grammar);
+            let game = transpile_statements(grammar).unwrap();
 
             let writer: Box<dyn Write> = match out {
                 Some(out) => Box::new(File::create_new(out).unwrap()),
@@ -109,15 +117,16 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             write_game_with_encoding(&mut writer, game, encoding);
         }
 
-        Command::Load { path, out, encoding , decoding} => {
+        Command::Load {
+            path,
+            out,
+            encoding,
+            decoding,
+        } => {
             let file = File::open(&path).unwrap();
             let reader: Box<dyn Read> = match decoding {
-                Decoding::Zlib => {
-                    Box::new(ZlibDecoder::new(file))
-                },
-                Decoding::Raw => {
-                    Box::new(file)
-                },
+                Decoding::Zlib => Box::new(ZlibDecoder::new(file)),
+                Decoding::Raw => Box::new(file),
             };
             let mut reader = BufReader::new(reader);
 
@@ -143,12 +152,12 @@ fn write_game_with_encoding(mut writer: &mut impl Write, game: Game, encoding: E
         Encoding::Zlib => {
             let mut writer = ZlibEncoder::new(writer, Compression::best());
             game.write(&mut writer).unwrap();
-        },
+        }
         Encoding::Raw => {
             game.write(&mut writer).unwrap();
-        },
+        }
         Encoding::Debug => {
             write!(writer, "{:#?}", game).unwrap();
-        },
+        }
     }
 }
