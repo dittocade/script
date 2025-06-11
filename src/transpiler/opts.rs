@@ -20,7 +20,11 @@ pub fn resolve_opts(opts: Opts, blocks: &Blocks) -> Option<Vec<Opt>> {
                 (pos[1] - min[1]) as u16,
                 (pos[2] - min[2]) as u16,
             ];
-            Opt { index: *i, position: pos, data: data.clone() }
+            Opt {
+                index: *i,
+                position: pos,
+                data: data.clone(),
+            }
         })
         .collect_vec();
 

@@ -39,7 +39,9 @@ pub fn boolean(i: &mut Tokens) -> Result<bool> {
 }
 
 pub fn string(i: &mut Tokens) -> Result<String> {
-    Kind::String.map(|&v| v.value[1..v.value.len() - 1].to_string()).parse_next(i)
+    Kind::String
+        .map(|&v| v.value[1..v.value.len() - 1].to_string())
+        .parse_next(i)
 }
 
 pub fn modifier(i: &mut Tokens) -> Result<Modifier> {
