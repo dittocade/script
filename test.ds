@@ -1,1 +1,5 @@
-set_number_list(list_number(get_number("foo"), 123), add_numbers(456, 789))
+set_number_list(get_number("speed"), 0.1)
+set_number_list(get_number("z"), add_numbers(get_number("z"), get_number("speed")))
+
+set_object_list(get_object("brick"), bricks())
+set_position(get_object("brick"), make_vector(_, 0.5, get_number("z")))
