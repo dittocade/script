@@ -3,7 +3,7 @@ use blocks::Blocks;
 use fnv::FnvHashMap;
 use itertools::join;
 use opts::{resolve_opts, Opts};
-use scripts::Opt;
+use prefabs::Opt;
 use std::cmp::min;
 use wires::{resolve_wires, Wires};
 
@@ -12,19 +12,19 @@ use crate::{
     parser::grammar::{Expression, Input, Statement},
     transpiler::{
         blocks::{resolve_blocks, BlocksExt},
-        scripts::{get_scripts, Script},
+        prefabs::{get_prefabs, Prefab},
     },
 };
 
 mod blocks;
 mod opts;
-mod scripts;
+mod prefabs;
 mod wires;
 
 pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
     let mut game = Game::default();
 
-    let scripts = get_scripts();
+    let scripts = get_prefabs();
     let mut blocks = FnvHashMap::default();
     let mut opts = Vec::new();
     let mut wires = Vec::new();
@@ -89,7 +89,10 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
                 z = min(z, new_z);
                 prev_pos = Some(pos);
             }
-            Statement::Assignement { value: _, outputs: _ } => {
+            Statement::Assignement {
+                value: _,
+                outputs: _,
+            } => {
                 todo!()
             }
             Statement::Definition {
@@ -129,7 +132,7 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
 
 pub fn transpile_expression(
     value: &Expression,
-    scripts: &Vec<Script>,
+    scripts: &Vec<Prefab>,
     blocks: &mut Blocks,
     opts: &mut Opts,
     wires: &mut Wires,
@@ -141,7 +144,7 @@ pub fn transpile_expression(
     match &value {
         Expression::Skip => {
             *z -= 1;
-        },
+        }
         Expression::Float(value) => {
             transpile_expression(
                 &Expression::Call {
@@ -253,7 +256,10 @@ pub fn transpile_expression(
             // undo x padding
             *x += 1;
         }
-        Expression::Variable { modifier: _, name: _ } => todo!(),
+        Expression::Variable {
+            modifier: _,
+            name: _,
+        } => todo!(),
     };
     Ok(())
 }
@@ -293,23 +299,11 @@ fn transpile_option(
                 unimplemented!()
             };
 
-            OptData::Name(title_case(value))
+            OptData::Name(value.to_string())
         }
         _ => unimplemented!(),
     };
     opts.push((i as u8, pos, data));
 
     Ok(())
-}
-
-fn title_case(s: &str) -> String {
-    let words = s.split('_').map(|s| {
-        let mut c = s.chars();
-        match c.next() {
-            None => String::new(),
-            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-        }
-    });
-
-    return join(words, " ");
 }

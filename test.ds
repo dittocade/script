@@ -1,5 +1,5 @@
-set_number_list(get_number("speed"), 0.1)
-set_number_list(get_number("z"), add_numbers(get_number("z"), get_number("speed")))
-
-set_object_list(get_object("brick"), bricks())
-set_position(get_object("brick"), make_vector(_, 0.5, get_number("z")))
+set_object(shrub(), "player")
+set_vector(joystick(), "direction")
+set_vector(add_vectors(get_position(get_object("player")), scale(get_vector("direction"), 0.2)), "position")
+set_rotation(lerp(get_rotation("rotation"), look_rotation(get_vector("direction")), 0.2), "rotation")
+set_position(get_object("player"), get_vector("position"), get_rotation("rotation"))
