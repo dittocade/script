@@ -1,7 +1,6 @@
 use anyhow::Result;
 use blocks::Blocks;
 use fnv::FnvHashMap;
-use itertools::join;
 use opts::{resolve_opts, Opts};
 use prefabs::Opt;
 use std::cmp::min;
@@ -47,8 +46,7 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
 
                 let height = script.parts.dim().0 as i32;
                 let new_z = z - height;
-                // origin position
-                let pos = [x, 0, new_z];
+                let pos = [x, 0, new_z]; // origin position
 
                 // connect before and after wires
                 if let Some(prev_pos) = prev_pos {
@@ -61,7 +59,6 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
                     ));
                 }
 
-                // insert block
                 blocks.try_insert_parts(pos, &script.parts)?;
 
                 for (i, _inp) in script.inputs.iter().enumerate() {
@@ -106,6 +103,8 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
                 todo!()
             }
             Statement::Comment(value) => {
+                z -= 1; // add z padding
+                
                 for line in textwrap::wrap(value.as_str(), 16) {
                     let script = comment;
                     let height = script.parts.dim().0 as i32;
@@ -215,15 +214,13 @@ pub fn transpile_expression(
                 todo!();
             };
 
-            // add x padding
-            *x -= 1;
+            *x -= 1; // add x padding
 
             let height = script.parts.dim().0 as i32;
             let width = script.parts.dim().2 as i32;
             let new_z = *z - height;
             *x -= width;
-            // origin position
-            let pos = [*x, 0, *z - height];
+            let pos = [*x, 0, *z - height]; // origin position
 
             wires.push((
                 [pos, prev_pos],
@@ -263,8 +260,7 @@ pub fn transpile_expression(
             *x += width;
             *z = min(*z, new_z);
 
-            // undo x padding
-            *x += 1;
+            *x += 1; // reset x padding
         }
         Expression::Variable {
             modifier: _,
