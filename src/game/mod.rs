@@ -162,8 +162,15 @@ pub enum OptKind {
 #[derive(Debug)]
 #[allow(unused)]
 pub struct Wire {
-    pub positions: [[u16; 3]; 2],
-    pub offsets: [[u16; 3]; 2],
+    pub from: Port,
+    pub to: Port,
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+pub struct Port {
+    pub position: [u16; 3],
+    pub offset: [u16; 3],
 }
 
 #[derive(Debug)]

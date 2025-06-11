@@ -105,15 +105,19 @@ impl Opt {
 
 impl Wire {
     pub fn read(file: &mut impl Read) -> io::Result<Self> {
+        let from_position = [read_u16(file)?, read_u16(file)?, read_u16(file)?];
+        let to_position = [read_u16(file)?, read_u16(file)?, read_u16(file)?];
+        let from_offset = [read_u16(file)?, read_u16(file)?, read_u16(file)?];
+        let to_offset = [read_u16(file)?, read_u16(file)?, read_u16(file)?];
         Ok(Self {
-            positions: [
-                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
-                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
-            ],
-            offsets: [
-                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
-                [read_u16(file)?, read_u16(file)?, read_u16(file)?],
-            ],
+            from: Port {
+                position: from_position,
+                offset: from_offset
+            },
+            to: Port {
+                position: to_position,
+                offset: to_offset,
+            }
         })
     }
 }

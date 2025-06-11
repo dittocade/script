@@ -130,20 +130,18 @@ impl Opt {
 
 impl Wire {
     pub fn write(&self, file: &mut impl Write) -> io::Result<()> {
-        let position: Vec<_> = self
-            .positions
+        let positions: Vec<_> = [self.from.position, self.to.position]
             .iter()
             .flatten()
             .flat_map(|pos| pos.to_le_bytes())
             .collect();
-        file.write_all(&position[..])?;
-        let offset: Vec<_> = self
-            .offsets
+        file.write_all(&positions[..])?;
+        let offsets: Vec<_> = [self.from.offset, self.to.offset]
             .iter()
             .flatten()
             .flat_map(|pos| pos.to_le_bytes())
             .collect();
-        file.write_all(&offset[..])
+        file.write_all(&offsets[..])
     }
 }
 

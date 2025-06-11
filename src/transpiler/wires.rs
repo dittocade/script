@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use super::blocks::{calculate_ranges, Blocks};
-use crate::game::Wire;
+use crate::game::{Port, Wire};
 
 pub type Wires = Vec<([[i32; 3]; 2], [[u16; 3]; 2])>;
 
@@ -26,8 +26,13 @@ pub fn resolve_wires(wires: Wires, blocks: &Blocks) -> Option<Vec<Wire>> {
                 (to[2] - min[2]) as u16,
             ];
             Wire {
-                positions: [from, to],
-                offsets,
+                from: Port {
+                    position: from,
+                    offset: offsets[0],
+                }, to: Port {
+                    position: to,
+                    offset: offsets[1],
+                }
             }
         })
         .collect_vec();
