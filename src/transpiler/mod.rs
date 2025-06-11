@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use blocks::Blocks;
 use fnv::FnvHashMap;
 use itertools::join;
@@ -37,8 +37,8 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
             Statement::Invocation {
                 name,
                 inputs,
-                outputs,
-                callbacks,
+                outputs: _,
+                callbacks: _,
             } => {
                 let Some(script) = scripts.iter().find(|script| script.name == name) else {
                     todo!();
@@ -63,7 +63,7 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
                 // insert block
                 blocks.try_insert_parts(pos, &script.parts)?;
 
-                for (i, inp) in script.inputs.iter().enumerate() {
+                for (i, _inp) in script.inputs.iter().enumerate() {
                     if let Some(input) = inputs.get(i) {
                         transpile_expression(
                             &input.value,
@@ -89,15 +89,15 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
                 z = min(z, new_z);
                 prev_pos = Some(pos);
             }
-            Statement::Assignement { value, outputs } => {
+            Statement::Assignement { value: _, outputs: _ } => {
                 todo!()
             }
             Statement::Definition {
-                name,
-                inputs,
-                outputs,
-                callbacks,
-                statements,
+                name: _,
+                inputs: _,
+                outputs: _,
+                callbacks: _,
+                statements: _,
             } => {
                 todo!()
             }
@@ -225,7 +225,7 @@ pub fn transpile_expression(
             ));
             blocks.try_insert_parts(pos, &script.parts)?;
 
-            for (i, inp) in script.inputs.iter().enumerate() {
+            for (i, _inp) in script.inputs.iter().enumerate() {
                 if let Some(input) = inputs.get(i) {
                     transpile_expression(
                         &input.value,
@@ -253,7 +253,7 @@ pub fn transpile_expression(
             // undo x padding
             *x += 1;
         }
-        Expression::Variable { modifier, name } => todo!(),
+        Expression::Variable { modifier: _, name: _ } => todo!(),
     };
     Ok(())
 }
