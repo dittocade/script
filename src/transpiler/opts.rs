@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use super::blocks::{calculate_ranges, Blocks};
-use crate::game::{Opt, OptData };
+use crate::game::{Opt, OptData};
 
 pub type Opts = Vec<(u8, [i32; 3], OptData)>;
 
