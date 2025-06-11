@@ -3,19 +3,23 @@ use blocks::Blocks;
 use fnv::FnvHashMap;
 use itertools::join;
 use opts::{resolve_opts, Opts};
+use scripts::Opt;
 use std::cmp::min;
 use wires::{resolve_wires, Wires};
 
 use crate::{
-    game::{Chunk, Collider, Game, Kind, Opt, OptData, OptKind},
+    game::{Chunk, Collider, Game, Kind, OptData, OptKind},
     parser::grammar::{Expression, Input, Statement},
-    transpiler::{blocks::{resolve_blocks, BlocksExt}, scripts::{get_scripts, Script}},
+    transpiler::{
+        blocks::{resolve_blocks, BlocksExt},
+        scripts::{get_scripts, Script},
+    },
 };
 
 mod blocks;
-mod wires;
-mod scripts;
 mod opts;
+mod scripts;
+mod wires;
 
 pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
     let mut game = Game::default();
@@ -59,19 +63,26 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
                 // insert block
                 blocks.try_insert_parts(pos, &script.parts)?;
 
-                // transpile inputs
-                for (i, input) in inputs.iter().enumerate() {
-                    transpile_expression(
-                        &input.value,
-                        &scripts,
-                        &mut blocks,
-                        &mut opts,
-                        &mut wires,
-                        &mut x,
-                        &mut z,
-                        pos,
-                        [0o00, 0o01, 0o03 + (height as u16 - i as u16 - 1) * 8],
-                    )?;
+                for (i, inp) in script.inputs.iter().enumerate() {
+                    if let Some(input) = inputs.get(i) {
+                        transpile_expression(
+                            &input.value,
+                            &scripts,
+                            &mut blocks,
+                            &mut opts,
+                            &mut wires,
+                            &mut x,
+                            &mut z,
+                            pos,
+                            [0o00, 0o01, 0o03 + (height as u16 - i as u16 - 1) * 8],
+                        )?;
+                    }
+                }
+
+                for (i, opt) in script.options.iter().enumerate() {
+                    if let Some(input) = inputs.get(i + script.inputs.len()) {
+                        transpile_option(&input.value, opt, &mut opts, pos, i)?;
+                    }
                 }
 
                 // calculate lower z bound
@@ -108,7 +119,7 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
         faces: None,
         blocks: resolve_blocks(blocks),
         opts,
-        wires
+        wires,
     };
 
     game.chunks.push(level);
@@ -128,12 +139,17 @@ pub fn transpile_expression(
     prev_offset: [u16; 3],
 ) -> Result<()> {
     match &value {
-        Expression::Skip => (),
+        Expression::Skip => {
+            *z -= 1;
+        },
         Expression::Float(value) => {
             transpile_expression(
                 &Expression::Call {
                     name: "number".to_string(),
-                    inputs: vec![Input { value: Expression::Float(*value), label: None}],
+                    inputs: vec![Input {
+                        value: Expression::Float(*value),
+                        label: None,
+                    }],
                 },
                 scripts,
                 blocks,
@@ -144,12 +160,15 @@ pub fn transpile_expression(
                 prev_pos,
                 prev_offset,
             )?;
-        },
+        }
         Expression::Integer(value) => {
             transpile_expression(
                 &Expression::Call {
                     name: "number".to_string(),
-                    inputs: vec![Input { value: Expression::Float(*value as f64), label: None}],
+                    inputs: vec![Input {
+                        value: Expression::Float(*value as f64),
+                        label: None,
+                    }],
                 },
                 scripts,
                 blocks,
@@ -160,8 +179,23 @@ pub fn transpile_expression(
                 prev_pos,
                 prev_offset,
             )?;
-        },
-        Expression::Boolean(_) => todo!(),
+        }
+        Expression::Boolean(value) => {
+            transpile_expression(
+                &Expression::Call {
+                    name: (if *value { "true" } else { "false" }).to_string(),
+                    inputs: Vec::new(),
+                },
+                scripts,
+                blocks,
+                opts,
+                wires,
+                x,
+                z,
+                prev_pos,
+                prev_offset,
+            )?;
+        }
         Expression::String(_) => unimplemented!(),
         Expression::Call { name, inputs } => {
             let Some(script) = scripts.iter().find(|script| &script.name == name) else {
@@ -190,7 +224,7 @@ pub fn transpile_expression(
                 ],
             ));
             blocks.try_insert_parts(pos, &script.parts)?;
-        
+
             for (i, inp) in script.inputs.iter().enumerate() {
                 if let Some(input) = inputs.get(i) {
                     transpile_expression(
@@ -209,49 +243,7 @@ pub fn transpile_expression(
 
             for (i, opt) in script.options.iter().enumerate() {
                 if let Some(input) = inputs.get(i + script.inputs.len()) {
-                    if let Expression::Skip = input.value {
-                        continue;
-                    }
-
-                    let data = match opt.kind {
-                        OptKind::Int8 => {
-                            let Expression::Integer(value) = input.value else {
-                                unimplemented!()
-                            };
-
-                            OptData::Int8(value.try_into()?)
-                        },
-                        OptKind::Int16 => {
-                            let Expression::Integer(value) = input.value else {
-                                unimplemented!()
-                            };
-
-                            OptData::Int16(value.try_into()?)
-                        },
-                        OptKind::Float32 => {
-                            match input.value {
-                                Expression::Integer(value) => OptData::Float32(value as f32),
-                                Expression::Float(value) => OptData::Float32(value as f32),
-                                _ => unimplemented!()
-                            }
-                        },
-                        OptKind::Vec => todo!(),
-                        OptKind::Name => {
-                            let Expression::String(value) = &input.value else {
-                                unimplemented!()
-                            };
-
-                            OptData::Name(title_case(value))
-                        },
-                        OptKind::Execute => todo!(),
-                        OptKind::Input => todo!(),
-                        OptKind::This => todo!(),
-                        OptKind::Pointer => todo!(),
-                        OptKind::Object => todo!(),
-                        OptKind::Output => todo!(),
-                        OptKind::Unknown(_) => todo!(),
-                    };
-                    opts.push((i as u8, pos, data))
+                    transpile_option(&input.value, opt, opts, pos, i)?;
                 }
             }
 
@@ -266,6 +258,49 @@ pub fn transpile_expression(
     Ok(())
 }
 
+fn transpile_option(
+    value: &Expression,
+    opt: &Opt,
+    opts: &mut Opts,
+    pos: [i32; 3],
+    i: usize,
+) -> Result<()> {
+    if let Expression::Skip = value {
+        return Ok(());
+    }
+
+    let data = match opt.kind {
+        OptKind::Int8 => match value {
+            &Expression::Integer(value) => OptData::Int8(value.try_into()?),
+            &Expression::Boolean(value) => OptData::Int8(value.into()),
+            _ => unimplemented!(),
+        },
+        OptKind::Int16 => {
+            let &Expression::Integer(value) = value else {
+                unimplemented!()
+            };
+
+            OptData::Int16(value.try_into()?)
+        }
+        OptKind::Float32 => match value {
+            &Expression::Integer(value) => OptData::Float32(value as f32),
+            &Expression::Float(value) => OptData::Float32(value as f32),
+            _ => unimplemented!(),
+        },
+        OptKind::Vec => todo!(),
+        OptKind::Name => {
+            let Expression::String(value) = &value else {
+                unimplemented!()
+            };
+
+            OptData::Name(title_case(value))
+        }
+        _ => unimplemented!(),
+    };
+    opts.push((i as u8, pos, data));
+
+    Ok(())
+}
 
 fn title_case(s: &str) -> String {
     let words = s.split('_').map(|s| {
@@ -276,5 +311,5 @@ fn title_case(s: &str) -> String {
         }
     });
 
-    return join(words, " ")
+    return join(words, " ");
 }
