@@ -25,6 +25,7 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
     let mut game = Game::default();
 
     let scripts = get_prefabs();
+    let comment = scripts.iter().find(|script| script.name == "comment").unwrap();
     let mut blocks = FnvHashMap::default();
     let mut opts = Vec::new();
     let mut wires = Vec::new();
@@ -104,8 +105,17 @@ pub fn transpile_statements(grammar: Vec<Statement>) -> Result<Game> {
             } => {
                 todo!()
             }
-            Statement::Comment(_) => {
-                todo!()
+            Statement::Comment(value) => {
+                for line in textwrap::wrap(value.as_str(), 16) {
+                    let script = comment;
+                    let height = script.parts.dim().0 as i32;
+                    z -= height;
+                    let pos = [x + 1, 0, z];
+
+                    // insert comment
+                    blocks.try_insert_parts(pos, &script.parts)?;
+                    transpile_option(&Expression::String(line.to_string()), &script.options[0], &mut opts, pos, 0)?;
+                }
             }
         }
     }

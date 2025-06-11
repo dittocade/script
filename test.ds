@@ -1,5 +1,12 @@
+# Set player
 set_object(shrub(), "player")
+
+# Get direction
 set_vector(joystick(), "direction")
+
+# Calculate new position and rotation
 set_vector(add_vectors(get_position(get_object("player")), scale(get_vector("direction"), 0.2)), "position")
 set_rotation(lerp(get_rotation("rotation"), look_rotation(get_vector("direction")), 0.2), "rotation")
+
+# Update position and rotation
 set_position(get_object("player"), get_vector("position"), get_rotation("rotation"))
