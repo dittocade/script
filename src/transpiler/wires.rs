@@ -29,10 +29,11 @@ pub fn resolve_wires(wires: Wires, blocks: &Blocks) -> Option<Vec<Wire>> {
                 from: Port {
                     position: from,
                     offset: offsets[0],
-                }, to: Port {
+                },
+                to: Port {
                     position: to,
                     offset: offsets[1],
-                }
+                },
             }
         })
         .collect_vec();

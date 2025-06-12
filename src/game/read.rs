@@ -112,12 +112,12 @@ impl Wire {
         Ok(Self {
             from: Port {
                 position: from_position,
-                offset: from_offset
+                offset: from_offset,
             },
             to: Port {
                 position: to_position,
                 offset: to_offset,
-            }
+            },
         })
     }
 }

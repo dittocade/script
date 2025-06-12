@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ndarray::{array, Array3};
 
 use crate::game::{OptKind, RawKind, ValueKind};
@@ -34,8 +36,8 @@ pub struct Opt {
     pub kind: OptKind,
 }
 
-pub fn get_prefabs() -> Vec<Prefab> {
-    vec![
+pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
+    let prefabs = vec![
         Prefab {
             name: "stone_block".to_string(),
             parts: array![[[0x01]]],
@@ -494,7 +496,7 @@ pub fn get_prefabs() -> Vec<Prefab> {
         },
         Prefab {
             name: "subtract_numbers".to_string(),
-            parts: array![[[0x64, 0x65]], [[0x65, 0x67]]],
+            parts: array![[[0x64, 0x65]], [[0x66, 0x67]]],
             inputs: vec![
                 ValuePort {
                     name: "num1".to_string(),
@@ -2978,16 +2980,20 @@ pub fn get_prefabs() -> Vec<Prefab> {
                     kind: ValueKind::Raw(RawKind::Object),
                 },
             ],
-            options: vec![Opt {
-                name: "name".to_string(),
-                kind: OptKind::Name,
-            }, Opt {
-                name: "amount".to_string(),
-                kind: OptKind::Int8,
-            }, Opt {
-                name: "price".to_string(),
-                kind: OptKind::Int8,
-            }],
+            options: vec![
+                Opt {
+                    name: "name".to_string(),
+                    kind: OptKind::Name,
+                },
+                Opt {
+                    name: "amount".to_string(),
+                    kind: OptKind::Int8,
+                },
+                Opt {
+                    name: "price".to_string(),
+                    kind: OptKind::Int8,
+                },
+            ],
             callable: true,
             ..Default::default()
         },
@@ -3010,5 +3016,12 @@ pub fn get_prefabs() -> Vec<Prefab> {
             callable: true,
             ..Default::default()
         },
-    ]
+    ];
+
+    let prefabs = prefabs
+        .into_iter()
+        .map(|x| (x.name.to_string(), x))
+        .collect();
+
+    prefabs
 }
