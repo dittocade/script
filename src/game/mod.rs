@@ -1,8 +1,9 @@
-use ndarray::{Array3, Array4};
-use std::fmt::Debug;
-
 pub mod read;
 pub mod write;
+
+use ndarray::{Array3, Array4};
+use std::fmt::Debug;
+use crate::position::Position;
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -114,14 +115,14 @@ impl Into<Option<u8>> for Collider {
 #[allow(unused)]
 pub struct Part {
     pub id: u16,
-    pub offset: [u8; 3],
+    pub offset: Position<u8>,
 }
 
 #[derive(Debug)]
 #[allow(unused)]
 pub struct Opt {
     pub index: u8,
-    pub position: [u16; 3],
+    pub position: Position<u16>,
     pub data: OptData,
 }
 
@@ -131,7 +132,7 @@ pub enum OptData {
     Int8(u8),
     Int16(u16),
     Float32(f32),
-    Vec([f32; 3]),
+    Vec(Position<f32>),
     Name(String),
     Execute(String),
     Input(String),
@@ -169,8 +170,8 @@ pub struct Wire {
 #[derive(Debug)]
 #[allow(unused)]
 pub struct Port {
-    pub position: [u16; 3],
-    pub offset: [u16; 3],
+    pub position: Position<u16>,
+    pub offset: Position<u16>,
 }
 
 #[derive(Debug)]

@@ -1,15 +1,14 @@
-use token::*;
 use winnow::{
     ascii::{digit1, multispace0},
     combinator::{alt, delimited, dispatch, eof, opt, peek, preceded, repeat, terminated},
     stream::AsChar,
     token::{any, take_while},
-    Parser, Result,
+    Parser,
 };
 
-pub mod token;
+use super::*;
 
-pub fn token<'s>(i: &mut &'s str) -> Result<Token<'s>> {
+pub fn token<'s>(i: &mut &'s str) -> winnow::Result<Token<'s>> {
     dispatch!{peek(any);
         '0'..='9' | '.' => alt((
             (digit1, '.', digit1).take().value(Kind::Float),
@@ -68,7 +67,7 @@ pub fn token<'s>(i: &mut &'s str) -> Result<Token<'s>> {
     .parse_next(i)
 }
 
-pub fn tokens<'s>(i: &mut &'s str) -> Result<Vec<Token<'s>>> {
+pub fn tokens<'s>(i: &mut &'s str) -> winnow::Result<Vec<Token<'s>>> {
     let mut tokens: Vec<_> =
         preceded(multispace0, repeat(1.., terminated(token, multispace0))).parse_next(i)?;
 

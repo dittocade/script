@@ -1,4 +1,4 @@
-use crate::{game::Game, lexer, parser, transpiler::transpile_game};
+use crate::{game, grammar, graph, token, transpiler};
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
@@ -80,41 +80,25 @@ pub fn run() -> Result<()> {
             encoding,
         } => {
             let content = std::fs::read_to_string(&path)?;
-            let content = content.as_str();
-            let tokens = lexer::tokens.parse(content);
+            let mut content = content.as_str();
+            
+            let tokens = token::parse::tokens(&mut content).unwrap();
 
-            let Ok(tokens) = tokens else {
-                match tokens {
-                    Ok(tokens) => println!("{:#?}", tokens),
-                    Err(error) => {
-                        let message = error.inner().to_string();
-                        let input = (*error.input()).to_owned();
-                        let span = error.char_span();
-                        let message = annotate_snippets::Level::Error.title(&message).snippet(
-                            annotate_snippets::Snippet::source(&input)
-                                .fold(true)
-                                .annotation(annotate_snippets::Level::Error.span(span.clone())),
-                        );
-                        let renderer = annotate_snippets::Renderer::plain();
-                        let rendered = renderer.render(message);
-                        panic!("{}", rendered);
-                    }
-                };
-                return Ok(());
-            };
+            let grammar = terminated(grammar::parse::statements0, token::Kind::EndOfFile)
+                .parse(TokenSlice::new(&tokens)).unwrap();
 
-            let grammar = terminated(parser::statements0, lexer::token::Kind::EndOfFile)
-                .parse(TokenSlice::new(&tokens))
-                .unwrap();
+            let graph = graph::write::statements(&grammar, &graph::prefab::by_name(graph::prefab::prefabs()))?;
 
-            let game = transpile_game(grammar)?;
+            // let game = transpiler::transpile_game(grammar)?;
 
             let writer: Box<dyn Write> = match out {
                 Some(out) => Box::new(File::create_new(out)?),
                 None => Box::new(stdout()),
             };
             let mut writer = BufWriter::new(writer);
-            write_game_with_encoding(&mut writer, game, encoding);
+
+            write!(writer, "{:#?}", graph);
+            // write_game_with_encoding(&mut writer, game, encoding);
         }
 
         Command::Load {
@@ -130,7 +114,7 @@ pub fn run() -> Result<()> {
             };
             let mut reader = BufReader::new(reader);
 
-            let game = Game::read(&mut reader)?;
+            let game = game::read::game(&mut reader)?;
 
             let Ok(0) = reader.read(&mut [0; 1]) else {
                 panic!("not all game data could be read!");
@@ -149,7 +133,7 @@ pub fn run() -> Result<()> {
 
 fn write_game_with_encoding(
     mut writer: &mut impl Write,
-    game: Game,
+    game: game::Game,
     encoding: Encoding,
 ) -> Result<()> {
     match encoding {

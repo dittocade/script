@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use ndarray::{array, Array3};
 
-use crate::game::{OptKind, RawKind, ValueKind};
+use crate::{game::{OptKind, RawKind, ValueKind}, position::Position};
 
 #[derive(Debug, Default)]
 #[allow(unused)]
@@ -13,7 +13,34 @@ pub struct Prefab {
     pub outputs: Vec<ValuePort>,
     pub callable: bool,
     pub callbacks: Vec<ExecutePort>,
-    pub options: Vec<Opt>,
+    pub opts: Vec<Opt>,
+}
+
+impl Prefab {
+    pub fn dim(&self) -> Position<usize> {
+        let pos: Position<usize> = self.parts.dim().into();
+        pos.to_reversed()
+    }
+
+    pub fn before_port(&self) -> Position<u16> {
+        Position::new(0o03, 0o01, self.dim().z as u16 * 0o10 - 0o02)
+    }
+
+    pub fn after_port(&self) -> Position<u16> {
+        Position::new(0x03, 0o01, 0o00)
+    }
+
+    pub fn output_port(&self, index: u16) -> Position<u16> {
+        Position::new(
+            (self.dim().x as u16 - index) * 0o10 - 0o02,
+            0o01,
+            self.dim().z as u16 * 0o10 - 0o05,
+        )
+    }
+
+    pub fn input_port(&self, index: u16) -> Position<u16> {
+        Position::new(0o00, 0o01, (self.dim().z as u16 - index) * 0o10 - 0o05)
+    }
 }
 
 #[derive(Debug)]
@@ -36,7 +63,15 @@ pub struct Opt {
     pub kind: OptKind,
 }
 
-pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
+pub fn by_id(prefabs: Vec<Rc<Prefab>>) -> HashMap<u16, Rc<Prefab>> {
+    prefabs.into_iter().map(move |prefab | (prefab.parts[(0, 0, 0)], prefab)).collect()
+}
+
+pub fn by_name(prefabs: Vec<Rc<Prefab>>) -> HashMap<String, Rc<Prefab>> {
+    prefabs.into_iter().map(move |prefab | (prefab.name.clone(), prefab)).collect()
+}
+
+pub fn prefabs() -> Vec<Rc<Prefab>> {
     let prefabs = vec![
         Prefab {
             name: "stone_block".to_string(),
@@ -113,7 +148,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "comment".to_string(),
             parts: array![[[0x0F]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "value".to_string(),
                 kind: OptKind::Name,
             }],
@@ -182,7 +217,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "number".to_string(),
             parts: array![[[0x24, 0x25]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "value".to_string(),
                 kind: OptKind::Float32,
             }],
@@ -195,7 +230,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "vector".to_string(),
             parts: array![[[0x26, 0x27]], [[0x28, 0x29]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "value".to_string(),
                 kind: OptKind::Vec,
             }],
@@ -208,7 +243,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "rotation".to_string(),
             parts: array![[[0x2A, 0x2B]], [[0x2C, 0x2D]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "value".to_string(),
                 kind: OptKind::Vec,
             }],
@@ -221,7 +256,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "rotation".to_string(),
             parts: array![[[0x2A, 0x2B]], [[0x2C, 0x2D]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "value".to_string(),
                 kind: OptKind::Vec,
             }],
@@ -234,7 +269,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "get_number".to_string(),
             parts: array![[[0x2E, 0x2F]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -247,7 +282,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "get_vector".to_string(),
             parts: array![[[0x30, 0x31]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -260,7 +295,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "get_rotation".to_string(),
             parts: array![[[0x32, 0x33]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -273,7 +308,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "get_truth".to_string(),
             parts: array![[[0x34, 0x35]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -286,7 +321,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "get_object".to_string(),
             parts: array![[[0x36, 0x37]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -299,7 +334,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "get_constraint".to_string(),
             parts: array![[[0x38, 0x39]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -1162,7 +1197,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                     kind: ValueKind::Raw(RawKind::Number),
                 },
             ],
-            options: vec![
+            opts: vec![
                 Opt {
                     name: "state".to_string(),
                     kind: OptKind::Int8,
@@ -1194,7 +1229,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "win".to_string(),
             parts: array![[[0xFC, 0xFD]], [[0xFE, 0xFF]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "delay".to_string(),
                 kind: OptKind::Int8,
             }],
@@ -1204,7 +1239,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         Prefab {
             name: "lose".to_string(),
             parts: array![[[0x100, 0x101]], [[0x102, 0x103]]],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "delay".to_string(),
                 kind: OptKind::Int8,
             }],
@@ -1224,7 +1259,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                     kind: ValueKind::Raw(RawKind::Number),
                 },
             ],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "order".to_string(),
                 kind: OptKind::Int8,
             }],
@@ -1248,7 +1283,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "channel".to_string(),
                 kind: ValueKind::Raw(RawKind::Number),
             }],
-            options: vec![
+            opts: vec![
                 Opt {
                     name: "loop".to_string(),
                     kind: OptKind::Int8,
@@ -1278,7 +1313,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                     kind: ValueKind::Raw(RawKind::Number),
                 },
             ],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "perspective".to_string(),
                 kind: OptKind::Int8,
             }],
@@ -1920,7 +1955,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "value".to_string(),
                 kind: ValueKind::Raw(RawKind::Number),
             }],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -1934,7 +1969,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "value".to_string(),
                 kind: ValueKind::Raw(RawKind::Vector),
             }],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -1948,7 +1983,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "value".to_string(),
                 kind: ValueKind::Raw(RawKind::Rotation),
             }],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -1962,7 +1997,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "value".to_string(),
                 kind: ValueKind::Raw(RawKind::Truth),
             }],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -1976,7 +2011,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "value".to_string(),
                 kind: ValueKind::Raw(RawKind::Object),
             }],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -1990,7 +2025,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                 name: "value".to_string(),
                 kind: ValueKind::Raw(RawKind::Constraint),
             }],
-            options: vec![Opt {
+            opts: vec![Opt {
                 name: "name".to_string(),
                 kind: OptKind::Name,
             }],
@@ -2980,7 +3015,7 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
                     kind: ValueKind::Raw(RawKind::Object),
                 },
             ],
-            options: vec![
+            opts: vec![
                 Opt {
                     name: "name".to_string(),
                     kind: OptKind::Name,
@@ -3018,10 +3053,5 @@ pub fn get_prefabs<'a>() -> HashMap<String, Prefab> {
         },
     ];
 
-    let prefabs = prefabs
-        .into_iter()
-        .map(|x| (x.name.to_string(), x))
-        .collect();
-
-    prefabs
+    prefabs.into_iter().map(|prefab| Rc::new(prefab)).collect()
 }

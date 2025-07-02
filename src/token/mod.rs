@@ -1,10 +1,11 @@
-use std::fmt::{self, Debug};
+pub mod parse;
 
+use std::fmt::{self, Debug};
 use winnow::{
     error::ContextError,
     stream::{ContainsToken, TokenSlice},
     token::literal,
-    Parser, Result,
+    Parser,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -70,7 +71,7 @@ impl PartialEq<Kind> for Token<'_> {
 pub(crate) type Tokens<'i> = TokenSlice<'i, Token<'i>>;
 
 impl<'i> Parser<Tokens<'i>, &'i Token<'i>, ContextError> for Kind {
-    fn parse_next(&mut self, input: &mut Tokens<'i>) -> Result<&'i Token<'i>> {
+    fn parse_next(&mut self, input: &mut Tokens<'i>) -> winnow::Result<&'i Token<'i>> {
         literal(*self).parse_next(input).map(|t| &t[0])
     }
 }

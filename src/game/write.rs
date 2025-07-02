@@ -61,7 +61,7 @@ impl Chunk {
         }
         if let Some(multi) = &self.part {
             write_u16(file, multi.id)?;
-            file.write_all(&multi.offset)?;
+            file.write_all(&multi.offset.into_slice()[..])?;
         }
         if let Some(color) = self.color {
             write_u8(file, color)?;
@@ -104,6 +104,7 @@ impl Opt {
 
         let position: Vec<_> = self
             .position
+            .into_slice()
             .iter()
             .flat_map(|pos| pos.to_le_bytes())
             .collect();
@@ -113,7 +114,7 @@ impl Opt {
             OptData::Int16(data) => write_u16(file, *data),
             OptData::Float32(data) => write_f32(file, *data),
             OptData::Vec(data) => {
-                let data: Vec<_> = data.iter().flat_map(|pos| pos.to_le_bytes()).collect();
+                let data: Vec<_> = data.into_slice().iter().flat_map(|pos| pos.to_le_bytes()).collect();
                 file.write_all(&data[..])
             }
             OptData::Name(data) => write_string(file, &data),
@@ -130,13 +131,14 @@ impl Opt {
 
 impl Wire {
     pub fn write(&self, file: &mut impl Write) -> io::Result<()> {
-        let positions: Vec<_> = [self.from.position, self.to.position]
+        let positions: Vec<_> = [self.from.position.into_slice(), self.to.position.into_slice()]
             .iter()
             .flatten()
             .flat_map(|pos| pos.to_le_bytes())
             .collect();
         file.write_all(&positions[..])?;
-        let offsets: Vec<_> = [self.from.offset, self.to.offset]
+
+        let offsets: Vec<_> = [self.from.offset.into_slice(), self.to.offset.into_slice()]
             .iter()
             .flatten()
             .flat_map(|pos| pos.to_le_bytes())

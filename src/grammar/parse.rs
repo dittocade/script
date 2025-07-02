@@ -1,33 +1,32 @@
-use crate::lexer::token::*;
-use grammar::*;
+use crate::token::{Token, Tokens, Kind, Operator, Handedness};
+use super::{Callback, Expression, Input, Modifier, Output, Statement};
 use winnow::{
+    self,
     combinator::{
         alt, delimited, opt, repeat, separated, separated_foldl1, separated_foldr1, seq, terminated,
     },
     error::StrContext,
     token::one_of,
-    Parser, Result,
+    Parser,
 };
 
-pub mod grammar;
-
-pub fn name(i: &mut Tokens) -> Result<String> {
+pub fn name(i: &mut Tokens) -> winnow::Result<String> {
     Kind::Name.map(|&v| v.value.to_string()).parse_next(i)
 }
 
-pub fn names(i: &mut Tokens) -> Result<Vec<String>> {
+pub fn names(i: &mut Tokens) -> winnow::Result<Vec<String>> {
     separated(.., name, Kind::Comma).parse_next(i)
 }
 
-pub fn integer(i: &mut Tokens) -> Result<i32> {
+pub fn integer(i: &mut Tokens) -> winnow::Result<i32> {
     Kind::Integer.map(|&v| v.value).parse_to().parse_next(i)
 }
 
-pub fn float(i: &mut Tokens) -> Result<f64> {
+pub fn float(i: &mut Tokens) -> winnow::Result<f64> {
     Kind::Float.map(|&v| v.value).parse_to().parse_next(i)
 }
 
-pub fn boolean(i: &mut Tokens) -> Result<bool> {
+pub fn boolean(i: &mut Tokens) -> winnow::Result<bool> {
     Kind::Boolean
         .map(|&v| v.value)
         .map(|v| match v {
@@ -38,13 +37,13 @@ pub fn boolean(i: &mut Tokens) -> Result<bool> {
         .parse_next(i)
 }
 
-pub fn string(i: &mut Tokens) -> Result<String> {
+pub fn string(i: &mut Tokens) -> winnow::Result<String> {
     Kind::String
         .map(|&v| v.value[1..v.value.len() - 1].to_string())
         .parse_next(i)
 }
 
-pub fn modifier(i: &mut Tokens) -> Result<Modifier> {
+pub fn modifier(i: &mut Tokens) -> winnow::Result<Modifier> {
     Kind::Modifier
         .map(|v| match v.value {
             "$" => Modifier::Global,
@@ -54,7 +53,7 @@ pub fn modifier(i: &mut Tokens) -> Result<Modifier> {
         .parse_next(i)
 }
 
-pub fn variable(i: &mut Tokens) -> Result<Expression> {
+pub fn variable(i: &mut Tokens) -> winnow::Result<Expression> {
     seq! {Expression::Variable {
         modifier: opt(modifier),
         name: name,
@@ -62,7 +61,7 @@ pub fn variable(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn input(i: &mut Tokens) -> Result<Input> {
+pub fn input(i: &mut Tokens) -> winnow::Result<Input> {
     seq! {Input {
         label: opt(terminated(name, Kind::Label)),
         value: expression
@@ -70,11 +69,11 @@ pub fn input(i: &mut Tokens) -> Result<Input> {
     .parse_next(i)
 }
 
-pub fn inputs0(i: &mut Tokens) -> Result<Vec<Input>> {
+pub fn inputs0(i: &mut Tokens) -> winnow::Result<Vec<Input>> {
     separated(.., input, Kind::Comma).parse_next(i)
 }
 
-pub fn call(i: &mut Tokens) -> Result<Expression> {
+pub fn call(i: &mut Tokens) -> winnow::Result<Expression> {
     seq! {Expression::Call{
         name: name,
         _: Kind::Parenthesis(Handedness::Opening),
@@ -85,7 +84,7 @@ pub fn call(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn grouping(i: &mut Tokens) -> Result<Expression> {
+pub fn grouping(i: &mut Tokens) -> winnow::Result<Expression> {
     delimited(
         Kind::Parenthesis(Handedness::Opening),
         expression,
@@ -94,7 +93,7 @@ pub fn grouping(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn simple_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn simple_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     alt((
         grouping,
         Kind::Skip.map(|_| Expression::Skip),
@@ -108,7 +107,7 @@ pub fn simple_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn prefix_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn prefix_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     (
         repeat(
             ..,
@@ -141,7 +140,7 @@ pub fn prefix_expression(i: &mut Tokens) -> Result<Expression> {
         .parse_next(i)
 }
 
-pub fn exponentative_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn exponentative_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     separated_foldr1(
         prefix_expression,
         one_of([Kind::Operator(Operator::Power)]),
@@ -162,7 +161,7 @@ pub fn exponentative_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn multiplicative_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn multiplicative_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     separated_foldl1(
         exponentative_expression,
         one_of([
@@ -196,7 +195,7 @@ pub fn multiplicative_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn additive_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn additive_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     separated_foldl1(
         multiplicative_expression,
         one_of([
@@ -230,7 +229,7 @@ pub fn additive_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn relational_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn relational_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     separated_foldl1(
         additive_expression,
         one_of([
@@ -268,7 +267,7 @@ pub fn relational_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn equality_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn equality_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     separated_foldl1(
         relational_expression,
         one_of([
@@ -302,7 +301,7 @@ pub fn equality_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn logical_expression(i: &mut Tokens) -> Result<Expression> {
+pub fn logical_expression(i: &mut Tokens) -> winnow::Result<Expression> {
     separated_foldl1(
         equality_expression,
         one_of([Kind::Operator(Operator::And), Kind::Operator(Operator::Or)]),
@@ -333,11 +332,11 @@ pub fn logical_expression(i: &mut Tokens) -> Result<Expression> {
     .parse_next(i)
 }
 
-pub fn expression(i: &mut Tokens) -> Result<Expression> {
+pub fn expression(i: &mut Tokens) -> winnow::Result<Expression> {
     logical_expression.parse_next(i)
 }
 
-pub fn output(i: &mut Tokens) -> Result<Output> {
+pub fn output(i: &mut Tokens) -> winnow::Result<Output> {
     seq! {Output {
         label: opt(terminated(name, Kind::Label)),
         name: alt((
@@ -348,15 +347,15 @@ pub fn output(i: &mut Tokens) -> Result<Output> {
     .parse_next(i)
 }
 
-pub fn outputs0(i: &mut Tokens) -> Result<Vec<Output>> {
+pub fn outputs0(i: &mut Tokens) -> winnow::Result<Vec<Output>> {
     separated(.., output, Kind::Comma).parse_next(i)
 }
 
-pub fn outputs1(i: &mut Tokens) -> Result<Vec<Output>> {
+pub fn outputs1(i: &mut Tokens) -> winnow::Result<Vec<Output>> {
     separated(1.., output, Kind::Comma).parse_next(i)
 }
 
-pub fn callback(i: &mut Tokens) -> Result<Callback> {
+pub fn callback(i: &mut Tokens) -> winnow::Result<Callback> {
     seq! {Callback {
         label: opt(name),
         outputs: opt(delimited(Kind::Pipe, outputs0, Kind::Pipe)).map(Option::unwrap_or_default),
@@ -367,17 +366,17 @@ pub fn callback(i: &mut Tokens) -> Result<Callback> {
     .parse_next(i)
 }
 
-pub fn callbacks0(i: &mut Tokens) -> Result<Vec<Callback>> {
+pub fn callbacks0(i: &mut Tokens) -> winnow::Result<Vec<Callback>> {
     repeat(.., callback).parse_next(i)
 }
 
-pub fn comment(i: &mut Tokens) -> Result<Statement> {
+pub fn comment(i: &mut Tokens) -> winnow::Result<Statement> {
     Kind::Comment
         .map(|v| Statement::Comment(v.value[1..].trim().to_string()))
         .parse_next(i)
 }
 
-pub fn assignement(i: &mut Tokens) -> Result<Statement> {
+pub fn assignement(i: &mut Tokens) -> winnow::Result<Statement> {
     seq! {Statement::Assignement {
         outputs: opt(terminated(outputs1, Kind::Assignement)).map(Option::unwrap_or_default),
         value: expression,
@@ -385,7 +384,7 @@ pub fn assignement(i: &mut Tokens) -> Result<Statement> {
     .parse_next(i)
 }
 
-pub fn invocation(i: &mut Tokens) -> Result<Statement> {
+pub fn invocation(i: &mut Tokens) -> winnow::Result<Statement> {
     seq! {Statement::Invocation {
         outputs: opt(terminated(outputs0, Kind::Assignement)).map(Option::unwrap_or_default),
         name: name,
@@ -397,7 +396,7 @@ pub fn invocation(i: &mut Tokens) -> Result<Statement> {
     .parse_next(i)
 }
 
-pub fn definition(i: &mut Tokens) -> Result<Statement> {
+pub fn definition(i: &mut Tokens) -> winnow::Result<Statement> {
     seq! {Statement::Definition {
         _: Kind::Definition,
         name: name,
@@ -413,10 +412,10 @@ pub fn definition(i: &mut Tokens) -> Result<Statement> {
     .parse_next(i)
 }
 
-pub fn statement(i: &mut Tokens) -> Result<Statement> {
+pub fn statement(i: &mut Tokens) -> winnow::Result<Statement> {
     alt((comment, invocation, assignement, definition)).parse_next(i)
 }
 
-pub fn statements0(i: &mut Tokens) -> Result<Vec<Statement>> {
+pub fn statements0(i: &mut Tokens) -> winnow::Result<Vec<Statement>> {
     repeat(.., statement).parse_next(i)
 }
