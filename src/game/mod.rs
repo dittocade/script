@@ -1,5 +1,6 @@
+use anyhow::anyhow;
 use ndarray::{Array3, Array4};
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::transmute};
 
 pub mod read;
 pub mod write;
@@ -28,7 +29,7 @@ impl Default for Game {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(unused)]
 pub struct Chunk {
     pub is_locked: bool,
@@ -42,6 +43,88 @@ pub struct Chunk {
     pub opts: Option<Vec<Opt>>,
     pub wires: Option<Vec<Wire>>,
 }
+
+#[derive(Debug)]
+#[allow(unused)]
+pub struct Face{
+    color: Color,
+    glued: bool,
+}
+
+impl TryFrom<u8> for Face {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(Face {
+            glued: value & 0b1000_0000 != 0,
+            color: (value & 0b0111_1111).try_into()?,
+        })
+    }
+}
+
+impl Into<u8> for Face {
+    fn into(self) -> u8 {
+        self.color as u8 + (self.glued as u8 & 0b1000_0000)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(unused)]
+#[repr(u8)]
+pub enum Color {
+    Empty = 0x00,
+    Black = 0x01,
+    Gray4 = 0x02,
+    Gray3 = 0x03,
+    Gray2 = 0x04,
+    Gray1 = 0x05,
+    White = 0x06,
+    DarkBrown = 0x07,
+    Brown = 0x08,
+    LightBrown = 0x09,
+    DarkTan = 0x0A,
+    Tan = 0x0B,
+    LightTan = 0x0C,
+    DarkRed = 0x0D,
+    Red = 0x0E,
+    LightRed = 0x0F,
+    DarkOrange = 0x10,
+    Orange = 0x11,
+    LightOrange = 0x12,
+    DarkYellow = 0x13,
+    Yellow = 0x14,
+    LightYellow = 0x15,
+    DarkGreen = 0x16,
+    Green = 0x17,
+    LightGreen = 0x18,
+    DarkBlue = 0x19,
+    Blue = 0x1A,
+    LightBlue = 0x1B,
+}
+
+impl TryFrom<u8> for Color {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if (value <= 0x1B) {
+            Ok(unsafe {transmute(value)})
+        } else {
+            Err(anyhow!(format!("Couldn't convert {} to Color!", value)))
+        }
+    }
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+pub enum Direction {
+    East = 0,
+    West = 1,
+    Up = 2,
+    Down = 3,
+    North = 4,
+    South = 5,
+}
+
 
 #[derive(Debug, Clone, Copy, Default)]
 #[allow(unused)]
@@ -110,14 +193,14 @@ impl Into<Option<u8>> for Collider {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[allow(unused)]
 pub struct Part {
     pub id: u16,
     pub offset: [u8; 3],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(unused)]
 pub struct Opt {
     pub index: u8,
@@ -159,14 +242,14 @@ pub enum OptKind {
     Unknown(u8), // TODO: find out what these types of data are used for
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[allow(unused)]
 pub struct Wire {
     pub from: Port,
     pub to: Port,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[allow(unused)]
 pub struct Port {
     pub position: [u16; 3],
@@ -196,4 +279,17 @@ pub enum RawKind {
     Truth,
     Object,
     Constraint,
+}
+
+pub trait FacesExt {
+    #[allow(unused)]
+    fn fill_voxel(&mut self, voxel: (usize, usize, usize), color: u8);
+}
+
+impl FacesExt for Array4<u8> {
+    fn fill_voxel(&mut self, (z, y, x): (usize, usize, usize), color: u8) {
+        for side in 0..6 {
+            *self.get_mut((side, z, y, x)).unwrap() = color;
+        }
+    }
 }
