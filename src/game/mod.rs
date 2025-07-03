@@ -48,7 +48,7 @@ pub struct Chunk {
 #[allow(unused)]
 pub struct Face{
     color: Color,
-    glued: bool,
+    detached: bool,
 }
 
 impl TryFrom<u8> for Face {
@@ -56,7 +56,7 @@ impl TryFrom<u8> for Face {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Ok(Face {
-            glued: value & 0b1000_0000 != 0,
+            detached: value & 0b1000_0000 != 0,
             color: (value & 0b0111_1111).try_into()?,
         })
     }
@@ -64,7 +64,7 @@ impl TryFrom<u8> for Face {
 
 impl Into<u8> for Face {
     fn into(self) -> u8 {
-        self.color as u8 + (self.glued as u8 & 0b1000_0000)
+        self.color as u8 + (self.detached as u8 & 0b1000_0000)
     }
 }
 
@@ -100,13 +100,19 @@ pub enum Color {
     DarkBlue = 0x19,
     Blue = 0x1A,
     LightBlue = 0x1B,
+    DarkPurple = 0x1C,
+    Purple = 0x1D,
+    LightPurple = 0x1E,
+    DarkPink = 0x1F,
+    Pink = 0x20,
+    LightPink = 0x21,
 }
 
 impl TryFrom<u8> for Color {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if (value <= 0x1B) {
+        if (value <= 0x21) {
             Ok(unsafe {transmute(value)})
         } else {
             Err(anyhow!(format!("Couldn't convert {} to Color!", value)))

@@ -54,6 +54,7 @@ impl Chunk {
             write_u8(file, kind)?;
         }
         if let Some(name) = &self.name {
+            assert!(name.len() <= 16);
             write_string(file, &name)?;
         }
         if let Some(collider) = collider {
@@ -168,6 +169,7 @@ fn write_flags(file: &mut impl Write, flags: [bool; 16]) -> io::Result<()> {
 }
 
 fn write_faces(file: &mut impl Write, faces: &Array4<u8>) -> io::Result<()> {
+    assert_eq!(faces.dim(), (6, 8, 8, 8));
     let faces = faces.as_slice().unwrap();
     file.write_all(faces)
 }
