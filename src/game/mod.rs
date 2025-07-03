@@ -286,16 +286,3 @@ pub enum RawKind {
     Object,
     Constraint,
 }
-
-pub trait FacesExt {
-    #[allow(unused)]
-    fn fill_voxel(&mut self, voxel: (usize, usize, usize), color: u8);
-}
-
-impl FacesExt for Array4<u8> {
-    fn fill_voxel(&mut self, (z, y, x): (usize, usize, usize), color: u8) {
-        for side in 0..6 {
-            *self.get_mut((side, z, y, x)).unwrap() = color;
-        }
-    }
-}

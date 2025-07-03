@@ -1,12 +1,12 @@
 use crate::{
-    game::{Chunk, Collider, Color, Direction, FacesExt, Game, Kind, Part},
+    game::{Chunk, Collider, Color, Direction, Game, Kind, Part},
     lexer, parser,
     transpiler::transpile_game,
 };
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
-use ndarray::{array, Array3, Array4};
+use ndarray::{s, Array3, Array4};
 use std::{
     fmt::Debug,
     fs::File,
@@ -163,11 +163,35 @@ pub fn run() -> Result<()> {
             let sizes = [("S", 1), ("M", 2), ("L", 3), ("XL", 4)];
 
             let kinds = [
-                ("Script Block", [Color::Black, Color::Gray4, Color::Gray3]),
-                ("Math Block", [Color::Gray4, Color::Gray3, Color::Gray2]),
+                ("Script", [Color::Black as u8, Color::Gray4 as u8, Color::Gray3 as u8]),
+                ("Math", [Color::Gray4 as u8, Color::Gray3 as u8, Color::Gray2 as u8]),
                 (
-                    "Execute Block",
-                    [Color::DarkYellow, Color::Yellow, Color::LightYellow],
+                    "Execute",
+                    [Color::DarkYellow as u8, Color::Yellow as u8, Color::LightYellow as u8],
+                ),
+                (
+                    "Number",
+                    [Color::DarkBlue as u8, Color::Blue as u8, Color::LightBlue as u8],
+                ),
+                (
+                    "Object",
+                    [Color::DarkPink as u8, Color::Pink as u8, Color::LightPink as u8],
+                ),
+                (
+                    "Vector",
+                    [Color::DarkGreen as u8, Color::Green as u8, Color::LightGreen as u8],
+                ),
+                (
+                    "Rotation",
+                    [Color::DarkOrange as u8, Color::Orange as u8, Color::LightOrange as u8],
+                ), 
+                (
+                    "Truth",
+                    [Color::DarkRed as u8, Color::Red as u8, Color::LightRed as u8],
+                ),
+                (
+                    "Constraint",
+                    [Color::Gray2 as u8, Color::Gray1 as u8, Color::White as u8],
                 ),
             ];
 
@@ -175,107 +199,110 @@ pub fn run() -> Result<()> {
 
             let mut chunk = 598;
             let mut chunks = Vec::new();
+            let mut blocks = Array3::zeros((sizes.iter().map(|(_, height)| height).sum(), 1, width * kinds.len()));
+            let mut x = 0;
 
-            let mut blocks = Vec::new();
+            for (kind_name, [primary, secondary, tertriary]) in kinds {
+                let mut z = 0;
 
-            for (name, [primary, secondary, tertriary]) in kinds {
-                let id = chunk;
+                for (size_name, height) in sizes {
+                    let id = chunk;
+                    for part_z in 0..height {
+                        for part_x in 0..width {
+                            let is_westernmost = part_x == 0;
+                            let is_easternmost = part_x == width - 1;
+                            let is_southernmost = part_z == 0;
+                            let is_northernmost = part_z == height - 1;
 
-                for i in 0..width {
-                    let mut faces = Array4::zeros((6, 8, 8, 8));
+                            let part_depth = if is_northernmost { 7 } else { 8 };
+                            let part_height = 3;
+                            let part_width = if is_easternmost { 7 } else { 8 };
 
-                    for x in 0..(if i == width - 1 { 7 } else { 8 }) {
-                        for y in 0..3 {
-                            for z in 0..7 {
-                                faces.fill_voxel((z, y, x), Color::Black as u8);
+                            let mut faces = Array4::zeros((6, 8, 8, 8));
+
+                            faces.slice_mut(s![0..6, 0..part_depth, 0..part_height, 0..part_width]).fill(Color::Black as u8);
+
+                            faces.slice_mut(s![Direction::Up as usize, 0..part_depth, part_height - 1, 0..part_width]).fill(secondary);
+                            faces.slice_mut(s![Direction::Down as usize, 0..part_depth, 0, 0..part_width]).fill(primary);
+
+                            if is_westernmost {
+                                faces.slice_mut(s![Direction::Up as usize, 0..part_depth, part_height - 1, 0]).fill(primary);
+                                faces.slice_mut(s![Direction::West as usize, 0..part_depth, 0..part_height, 0]).fill(primary);
                             }
-                        }
-                    }
 
-                    for x in 0..(if i == width - 1 { 7 } else { 8 })  {
-                        for z in 0..7 {
-                            *faces.get_mut((Direction::Up as usize, z, 2, x)).unwrap() = secondary as u8;
-                            *faces.get_mut((Direction::Down as usize, z, 0, x)).unwrap() = primary as u8;
-                        }
-                    }
-
-                    for x in 0..(if i == width - 1 { 7 } else { 8 })  {
-                        for y in 0..3 {
-                            *faces.get_mut((Direction::South as usize, 0, y, x)).unwrap() = primary as u8;
-                            *faces.get_mut((Direction::North as usize, 6, y, x)).unwrap() = primary as u8;
-                        }
-                    }
-
-                    for z in 0..7  {
-                        for y in 0..3 {
-                            if i == 0 {
-                                *faces.get_mut((Direction::West as usize, z, y, 0)).unwrap() = primary as u8;
-                            } else if i == 1 {
-                                *faces.get_mut((Direction::East as usize, z, y, 6)).unwrap() = primary as u8;
+                            if is_easternmost {
+                                faces.slice_mut(s![Direction::Up as usize, 0..part_depth, part_height - 1, part_width - 1]).fill(tertriary);
+                                faces.slice_mut(s![Direction::East as usize, 0..part_depth, 0..part_height, part_width - 1]).fill(primary);
                             }
+
+                            if is_southernmost {
+                                faces.slice_mut(s![Direction::Up as usize, 0, part_height - 1, 0..part_width],).fill(primary);
+                                faces.slice_mut(s![Direction::South as usize, 0, 0..part_height, 0..part_width]).fill(primary);
+                            }
+
+                            if is_northernmost {
+                                faces.slice_mut(s![Direction::Up as usize, part_depth - 1, part_height - 1, 0..part_width]).fill(tertriary);
+                                faces.slice_mut(s![Direction::North as usize, part_depth - 1, 0..part_height, 0..part_width]).fill(primary);
+                            }
+
+                            if is_westernmost && is_northernmost {
+                                faces[(Direction::Up as usize, part_depth - 1, part_height - 1, 0)] = secondary;
+                            }
+
+                            if is_easternmost && is_southernmost {
+                                faces[(Direction::Up as usize, 0, part_height - 1, part_width - 1)] = secondary;
+                            }
+
+                            let block = Chunk {
+                                blocks: None,
+                                collider: Collider::Passthrough,
+                                color: None,
+                                faces: Some(faces),
+                                is_locked: false,
+                                kind: Kind::Script,
+                                name: (id == chunk).then(|| format!("{} {}", kind_name, size_name)),
+                                opts: None,
+                                part: Some(Part {
+                                    id,
+                                    offset: [part_x as u8, 0, part_z as u8],
+                                }),
+                                wires: None
+                            };
+
+                            blocks[(z + part_z, 0, x + part_x)] = chunk;
+
+                            chunks.push(block);
+                            chunk += 1;
                         }
                     }
 
-                    for x in 0..(if i == width - 1 { 7 } else { 8 }) {
-                        *faces.get_mut((Direction::Up as usize, 0, 2, x)).unwrap() = primary as u8;
-                    }
-
-                    for x in 0..(if i == width - 1 { 7 } else { 8 }) {
-                        *faces.get_mut((Direction::Up as usize, 6, 2, x)).unwrap() = tertriary as u8;
-                    }
-
-                    if i == width - 1 {
-                        for z in 0..7 {
-                            *faces.get_mut((Direction::Up as usize, z, 2, 6)).unwrap() = tertriary as u8;
-                        }
-                        *faces.get_mut((Direction::Up as usize, 0, 2, 6)).unwrap() = secondary as u8;
-                    } else if i == 0 {
-                        for z in 0..6 {
-                            *faces.get_mut((Direction::Up as usize, z, 2, 0)).unwrap() = primary as u8;
-                        }
-                        *faces.get_mut((Direction::Up as usize, 6, 2, 0)).unwrap() = secondary as u8;
-                    }
-
-                    let block = Chunk {
-                        blocks: None,
-                        collider: Collider::Default,
-                        color: None,
-                        faces: Some(faces),
-                        is_locked: false,
-                        kind: Kind::Default,
-                        name: (id == chunk).then(|| name.to_string()),
-                        opts: None,
-                        part: Some(Part {
-                            id,
-                            offset: [i as u8, 0, 0],
-                        }),
-                        wires: None
-                    };
-
-                    blocks.push(block);
-
-                    chunks.push(chunk);
-                    chunk += 1;
+                    z += height;
                 }
+
+
+                x += width;
             }
 
             let level = Chunk {
-                blocks: Some(Array3::from_shape_vec((1, 1, chunks.len()), chunks)?),
+                blocks: Some(blocks),
                 collider: Collider::Default,
-                color: Some(Color::Blue as u8),
+                color: Some(1),
                 faces: None,
                 is_locked: false,
-                kind: crate::game::Kind::Level,
-                name: Some("New Level".to_string()),
+                kind: Kind::Level,
+                name: Some("Scripts".to_string()),
                 opts: None,
                 part: None,
                 wires: None,
             };
 
-            let chunks: Vec<Chunk> = [vec![level], blocks].concat();
+            let chunks: Vec<Chunk> = [vec![level], chunks].concat();
 
             let game = Game {
                 chunks,
+                title: "Script Templates".to_string(),
+                author: "Bricked".to_string(),
+                description: "Templates to quickly create script blocks!".to_string(),
                 ..Default::default()
             };
 
